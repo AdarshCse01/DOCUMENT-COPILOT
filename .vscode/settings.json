@@ -1,0 +1,10 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/DOCUMENT-COPILOT/backend/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/DOCUMENT-COPILOT/backend"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/DOCUMENT-COPILOT/backend"
+  ],
+  "jupyter.interactiveWindow.textEditor.executeSelection": true
+}
