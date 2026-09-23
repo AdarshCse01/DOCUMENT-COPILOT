@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import date
@@ -55,6 +56,26 @@ def validate_thread_access(
         )
 
 
+def is_conversational_greeting(query: str) -> bool:
+    """Return True if query is a conversational greeting/pleasantry."""
+    clean = re.sub(r"[^\w\s]", "", query.strip().lower())
+    if not clean:
+        return False
+    greeting_patterns = [
+        r"^h+i+$",
+        r"^h+e+y+$",
+        r"^hello+$",
+        r"^greetings?$",
+        r"^howdy$",
+        r"^sup$",
+        r"^yo$",
+        r"^good\s+(morning|afternoon|evening)$",
+        r"^who\s+are\s+you$",
+        r"^what\s+can\s+you\s+do$",
+    ]
+    return any(re.match(p, clean) for p in greeting_patterns)
+
+
 async def orchestrate_chat_turn(
     thread_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -70,6 +91,32 @@ async def orchestrate_chat_turn(
 
     db = db_factory()
     try:
+        # Conversational greetings bypass LLM entirely to preserve API quota and latency
+        if is_conversational_greeting(user_query):
+            greeting_reply = (
+                "Hello! I am Document Copilot, an internal SEC filing research assistant for equity analysts.\n\n"
+                "I analyze and synthesize verified financial disclosures strictly grounded in SEC 10-K filings from "
+                "**Apple (AAPL)**, **Microsoft (MSFT)**, **NVIDIA (NVDA)**, **Amazon (AMZN)**, and **Alphabet (GOOGL)**.\n\n"
+                "You can ask me questions like:\n"
+                "- *\"How has Apple's revenue mix shifted over the last three fiscal years?\"*\n"
+                "- *\"Compare Microsoft's Intelligent Cloud segment revenue and Azure growth YoY.\"*\n"
+                "- *\"Summarize NVIDIA's Data Center revenue drivers.\"*"
+            )
+            words = greeting_reply.split(" ")
+            for i, word in enumerate(words):
+                delta = word if i == 0 else " " + word
+                yield format_data_stream_text(delta)
+                await asyncio.sleep(0.01)
+
+            create_chat_message(
+                db=db,
+                thread_id=thread_id,
+                role="assistant",
+                content=greeting_reply,
+                parts=[{"type": "text", "text": greeting_reply}],
+            )
+            yield format_data_stream_finish(reason="stop")
+            return
         status_queue: asyncio.Queue[str | None] = asyncio.Queue()
 
         async def on_status(msg: str) -> None:
@@ -201,9 +248,8 @@ async def orchestrate_chat_turn(
         yield format_data_stream_finish(reason="stop")
 
     except Exception as exc:  # noqa: BLE001
-        logger.error("orchestrate_chat_turn_failed", error=str(exc), thread_id=str(thread_id))
         err_str = str(exc)
-        if "insufficient_quota" in err_str or "credit_balance_exhausted" in err_str:
+        if "insufficient_quota" in err_str or "credit_balance_exhausted" in err_str or "429" in err_str:
             logger.info("openai_quota_exhausted_fallback_to_sec_corpus", thread_id=str(thread_id))
             async for part in generate_grounded_fallback(
                 user_query=user_query,
@@ -213,6 +259,7 @@ async def orchestrate_chat_turn(
                 yield part
             return
 
+        logger.error("orchestrate_chat_turn_failed", error=str(exc), thread_id=str(thread_id))
         clean_err = f"Execution error during chat orchestration: {exc}"
         yield format_data_stream_error(clean_err)
     finally:
@@ -372,7 +419,7 @@ async def generate_grounded_fallback(
             ),
         ]
 
-    elif any(k == query_lower or k in query_lower.split() for k in ("hi", "hii", "hello", "hey", "greetings")):
+    elif is_conversational_greeting(query_lower):
         answer_text = (
             "Hello! I am Document Copilot, your AI assistant for verified SEC 10-K financial filings research.\n\n"
             "I can analyze financial reports, segment revenues, product mix shifts, and risk factors strictly grounded in filings from "

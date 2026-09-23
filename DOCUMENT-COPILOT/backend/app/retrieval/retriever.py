@@ -73,7 +73,11 @@ class DocumentRetriever:
                 )
             )
         except (OpenAIError, RuntimeError, ValueError, OSError) as exc:
-            logger.warning("Dense embedding failed (%s); continuing with keyword search only.", exc)
+            err_msg = str(exc)
+            if "insufficient_quota" in err_msg or "credit_balance_exhausted" in err_msg:
+                logger.info("Dense embedding skipped due to exhausted OpenAI quota; using PostgreSQL full-text search.")
+            else:
+                logger.warning("Dense embedding failed (%s); continuing with keyword search only.", exc)
 
         # 3. Full-Text Search (Sparse Lexical Search with AND -> OR fallback)
         keyword_results = list(
