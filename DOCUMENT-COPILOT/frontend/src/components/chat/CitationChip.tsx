@@ -1,6 +1,4 @@
-import { FileText, ExternalLink } from 'lucide-react'
 import type { CitationItem } from '@/lib/api'
-import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface CitationChipProps {
@@ -16,16 +14,9 @@ export function CitationChip({
   isSelected = false,
   onClick,
 }: CitationChipProps) {
-  const yearText = citation.fiscal_year ? `FY${citation.fiscal_year}` : ''
-  const locationText = citation.section
-    ? citation.section
-    : citation.page !== null && citation.page !== undefined
-      ? `p. ${citation.page}`
-      : ''
-
-  const label = [citation.ticker, citation.form, yearText, locationText]
-    .filter(Boolean)
-    .join(' · ')
+  const dateText =
+    citation.filing_date || (citation.fiscal_year ? `FY${citation.fiscal_year}` : '')
+  const label = [citation.ticker, citation.form, dateText].filter(Boolean).join(' · ')
 
   return (
     <Tooltip>
@@ -34,28 +25,21 @@ export function CitationChip({
           type="button"
           id={`citation-chip-${index}`}
           onClick={() => onClick?.(citation)}
-          className={`group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-150 cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-normal transition-all duration-150 cursor-pointer ${
             isSelected
-              ? 'border-foreground bg-foreground text-background shadow-xs ring-1 ring-foreground'
-              : 'border-border bg-card text-muted-foreground hover:border-foreground/50 hover:bg-accent hover:text-foreground'
+              ? 'border-zinc-900 bg-zinc-100 text-zinc-900 shadow-2xs ring-1 ring-zinc-900'
+              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50'
           }`}
         >
-          <Badge
-            variant={isSelected ? 'default' : 'outline'}
-            size="sm"
-            className={`h-4 min-w-4 px-1 rounded-full text-[10px] font-mono leading-none ${
-              isSelected ? 'bg-background text-foreground' : 'bg-muted text-foreground'
-            }`}
-          >
-            {index}
-          </Badge>
-          <FileText className="h-3 w-3 shrink-0 opacity-70 group-hover:opacity-100" />
-          <span className="truncate max-w-[190px] font-mono text-[11px]">{label}</span>
-          <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-40 group-hover:opacity-100" />
+          <span className="font-semibold text-zinc-900 font-mono">[{index}]</span>
+          <span className="font-sans text-zinc-700">{label}</span>
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs text-xs space-y-1">
-        <div className="font-semibold font-mono text-[11px]">{label}</div>
+        <div className="font-semibold font-mono text-[11px]">
+          {citation.ticker} {citation.form} {dateText}
+          {citation.page ? ` · p. ${citation.page}` : ''}
+        </div>
         {citation.excerpt && (
           <p className="line-clamp-3 text-muted-foreground text-[11px] italic">
             "{citation.excerpt}"
@@ -65,3 +49,4 @@ export function CitationChip({
     </Tooltip>
   )
 }
+

@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react'
-import { Bot, User as UserIcon, AlertCircle, AlertTriangle } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { AlertCircle, AlertTriangle } from 'lucide-react'
 import { StreamingIndicator } from './StreamingIndicator'
 import { CitationChip } from './CitationChip'
 import type { CitationItem } from '@/lib/api'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 
 export interface UIMessage {
   id: string
@@ -52,30 +52,21 @@ interface MessageListProps {
   onSelectCitation?: (citation: CitationItem) => void
 }
 
-/** Render text with clickable inline [n] citation references and hover tooltips. */
-function FormattedMessageText({
-  text,
-  citations,
-  selectedCitation,
-  onSelectCitation,
-}: {
-  text: string
-  citations: CitationItem[]
-  selectedCitation?: CitationItem | null
-  onSelectCitation?: (citation: CitationItem) => void
-}) {
-  if (!citations || citations.length === 0) {
-    return <div className="whitespace-pre-wrap break-words">{text}</div>
-  }
+/** Helper to replace [1], [2], etc. inside a string with interactive tooltip citation tags */
+function renderContentWithCitations(
+  text: string,
+  citations: CitationItem[],
+  selectedCitation?: CitationItem | null,
+  onSelectCitation?: (citation: CitationItem) => void,
+): React.ReactNode {
+  if (!citations || citations.length === 0) return text
 
-  // Regex matching citation patterns like [1], [2], [1, 2]
   const regex = /\[(\d+(?:,\s*\d+)*)\]/g
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
 
   while ((match = regex.exec(text)) !== null) {
-    // Push preceding plain text
     if (match.index > lastIndex) {
       parts.push(text.substring(lastIndex, match.index))
     }
@@ -84,19 +75,19 @@ function FormattedMessageText({
     const indices = indicesStr.split(',').map((s) => parseInt(s.trim(), 10))
 
     parts.push(
-      <span key={`cite-group-${match.index}`} className="inline-flex items-center gap-0.5 mx-0.5">
+      <span key={`cite-group-${match.index}`} className="inline-flex items-center gap-0.5 mx-0.5 align-baseline">
         {indices.map((idx) => {
           const citation = citations[idx - 1]
           if (!citation) {
             return (
-              <span key={idx} className="text-muted-foreground text-[11px] font-mono">
+              <span key={idx} className="text-zinc-400 text-[11px] font-mono">
                 [{idx}]
               </span>
             )
           }
 
           const isSelected = selectedCitation?.chunk_id === citation.chunk_id
-          const yearText = citation.fiscal_year ? ` FY${citation.fiscal_year}` : ''
+          const dateText = citation.filing_date || (citation.fiscal_year ? `FY${citation.fiscal_year}` : '')
 
           return (
             <Tooltip key={idx}>
@@ -104,26 +95,26 @@ function FormattedMessageText({
                 <button
                   type="button"
                   onClick={() => onSelectCitation?.(citation)}
-                  className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[11px] font-mono font-medium transition-all cursor-pointer ${
+                  className={`inline-flex items-center justify-center rounded px-1 py-0.2 text-[10px] font-mono font-medium transition-all cursor-pointer align-baseline ${
                     isSelected
-                      ? 'bg-foreground text-background ring-1 ring-foreground'
-                      : 'bg-muted text-foreground hover:bg-foreground hover:text-background'
+                      ? 'bg-zinc-900 text-white ring-1 ring-zinc-900'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                   }`}
                 >
                   [{idx}]
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs text-xs space-y-1">
+              <TooltipContent side="top" className="max-w-xs text-xs space-y-1 bg-white text-zinc-900 border border-zinc-200 shadow-md">
                 <div className="font-semibold font-mono text-[11px]">
-                  {citation.ticker} {citation.form}{yearText}
+                  {citation.ticker} {citation.form} {dateText}
                   {citation.page ? ` · p. ${citation.page}` : ''}
                 </div>
                 {citation.excerpt && (
-                  <p className="line-clamp-2 text-[11px] text-muted-foreground italic">
+                  <p className="line-clamp-2 text-[11px] text-zinc-500 italic">
                     "{citation.excerpt}"
                   </p>
                 )}
-                <div className="text-[10px] text-primary/80 pt-0.5">
+                <div className="text-[10px] text-zinc-400 pt-0.5">
                   Click to inspect full source passage
                 </div>
               </TooltipContent>
@@ -136,12 +127,65 @@ function FormattedMessageText({
     lastIndex = regex.lastIndex
   }
 
-  // Push remaining text
   if (lastIndex < text.length) {
     parts.push(text.substring(lastIndex))
   }
 
-  return <div className="whitespace-pre-wrap break-words leading-relaxed">{parts}</div>
+  return parts
+}
+
+/** Render text with markdown and clickable inline [n] citation references. */
+function FormattedMessageText({
+  text,
+  citations,
+  selectedCitation,
+  onSelectCitation,
+}: {
+  text: string
+  citations: CitationItem[]
+  selectedCitation?: CitationItem | null
+  onSelectCitation?: (citation: CitationItem) => void
+}) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ children }) => (
+          <p className="mb-4 last:mb-0 leading-relaxed text-zinc-900 font-normal">
+            {React.Children.map(children, (child) =>
+              typeof child === 'string'
+                ? renderContentWithCitations(child, citations, selectedCitation, onSelectCitation)
+                : child,
+            )}
+          </p>
+        ),
+        table: ({ children }) => (
+          <div className="my-4 overflow-x-auto rounded-lg border border-zinc-200">
+            <table className="w-full text-left text-xs border-collapse">{children}</table>
+          </div>
+        ),
+        thead: ({ children }) => (
+          <thead className="bg-zinc-50 border-b border-zinc-200">{children}</thead>
+        ),
+        th: ({ children }) => (
+          <th className="px-3 py-2 font-semibold text-zinc-900 border-r border-zinc-200 last:border-r-0">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="px-3 py-2 border-t border-zinc-200 border-r last:border-r-0 text-zinc-800">
+            {React.Children.map(children, (child) =>
+              typeof child === 'string'
+                ? renderContentWithCitations(child, citations, selectedCitation, onSelectCitation)
+                : child,
+            )}
+          </td>
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  )
 }
 
 export function MessageList({
@@ -163,115 +207,89 @@ export function MessageList({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-6 md:px-8">
-      {messages.map((message) => {
-        const isUser = message.role === 'user'
-        const text = getMessageText(message)
-        const citations = getMessageCitations(message)
-        const isRefusal =
-          !isUser &&
-          (text.toLowerCase().includes('not enough evidence') ||
-            text.toLowerCase().includes('refuses to infer') ||
-            text.toLowerCase().includes('unable to verify'))
+    <div className="flex flex-1 flex-col overflow-y-auto px-4 py-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        {messages.map((message) => {
+          const isUser = message.role === 'user'
+          const text = getMessageText(message)
+          const citations = getMessageCitations(message)
+          const isRefusal =
+            !isUser &&
+            (text.toLowerCase().includes('not enough evidence') ||
+              text.toLowerCase().includes('refuses to infer') ||
+              text.toLowerCase().includes('unable to verify'))
 
-        return (
-          <div
-            key={message.id}
-            id={`message-${message.id}`}
-            className={`flex w-full gap-3 md:gap-4 ${
-              isUser ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            {/* Assistant Avatar */}
-            {!isUser && (
-              <div className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-md border border-border bg-card text-foreground shadow-2xs">
-                <Bot className="h-4 w-4" />
-              </div>
-            )}
-
-            {/* Message Bubble */}
-            <div
-              className={`relative max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed shadow-xs md:max-w-[80%] ${
-                isUser
-                  ? 'bg-foreground text-background font-normal rounded-tr-xs'
-                  : 'border border-border/80 bg-card text-card-foreground rounded-tl-xs'
-              }`}
-            >
-              {/* Refusal / Missing Evidence Badge */}
-              {isRefusal && (
-                <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/70 px-2 py-0.5 text-xs font-medium text-foreground">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  <span>Grounding Contract: Insufficient evidence in SEC filings</span>
+          if (isUser) {
+            return (
+              <div key={message.id} className="flex w-full justify-end">
+                <div className="max-w-[80%] rounded-2xl bg-zinc-950 text-white px-4 py-2.5 text-sm leading-relaxed font-normal shadow-xs">
+                  {text}
                 </div>
-              )}
+              </div>
+            )
+          }
 
-              {/* Message Body with interactive citations */}
-              {isUser ? (
-                <div className="whitespace-pre-wrap break-words">{text}</div>
-              ) : (
+          return (
+            <div key={message.id} id={`message-${message.id}`} className="flex flex-col items-start w-full">
+              {/* Subtle avatar circle above card on the left matching reference */}
+              <div className="h-6 w-6 rounded-full border border-zinc-200 bg-white mb-2 shadow-2xs shrink-0" />
+
+              {/* Assistant Message Card */}
+              <div className="w-full rounded-2xl border border-zinc-200 bg-white p-6 text-sm text-zinc-900 shadow-none leading-relaxed">
+                {/* Refusal / Missing Evidence Badge */}
+                {isRefusal && (
+                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    <span>Grounding Contract: Insufficient evidence in SEC filings</span>
+                  </div>
+                )}
+
+                {/* Formatted body with markdown and citations */}
                 <FormattedMessageText
                   text={text}
                   citations={citations}
                   selectedCitation={selectedCitation}
                   onSelectCitation={onSelectCitation}
                 />
-              )}
 
-              {/* Citations Shelf */}
-              {!isUser && citations.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2.5">
-                  <div className="flex items-center gap-1 mr-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Sources
-                    </span>
-                    <Badge variant="outline" size="sm" className="font-mono text-[9px] px-1 py-0">
-                      {citations.length}
-                    </Badge>
+                {/* Citation Chips Shelf */}
+                {citations.length > 0 && (
+                  <div className="mt-5 border-t border-zinc-200 pt-3.5 flex flex-wrap items-center gap-2">
+                    {citations.map((citation, idx) => (
+                      <CitationChip
+                        key={citation.chunk_id || idx}
+                        index={idx + 1}
+                        citation={citation}
+                        isSelected={selectedCitation?.chunk_id === citation.chunk_id}
+                        onClick={onSelectCitation}
+                      />
+                    ))}
                   </div>
-                  {citations.map((citation, idx) => (
-                    <CitationChip
-                      key={citation.chunk_id || idx}
-                      index={idx + 1}
-                      citation={citation}
-                      isSelected={selectedCitation?.chunk_id === citation.chunk_id}
-                      onClick={onSelectCitation}
-                    />
-                  ))}
-                </div>
-              )}
+                )}
+              </div>
             </div>
+          )
+        })}
 
-            {/* User Avatar */}
-            {isUser && (
-              <Avatar className="h-7 w-7 border-border">
-                <AvatarFallback>
-                  <UserIcon className="h-3.5 w-3.5" />
-                </AvatarFallback>
-              </Avatar>
-            )}
+        {/* In-flight streaming indicator */}
+        {isLoading && (
+          <div className="flex flex-col items-start w-full">
+            <div className="h-6 w-6 rounded-full border border-zinc-200 bg-white mb-2 shadow-2xs shrink-0" />
+            <StreamingIndicator status={streamingStatus || 'Searching filings & generating answer…'} />
           </div>
-        )
-      })}
+        )}
 
-      {/* In-flight streaming indicator */}
-      {isLoading && (
-        <div className="flex items-center gap-3 animate-in fade-in">
-          <div className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-md border border-border bg-card text-foreground shadow-2xs">
-            <Bot className="h-4 w-4" />
+        {/* Error display */}
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error.message || 'An error occurred while streaming.'}</span>
           </div>
-          <StreamingIndicator status={streamingStatus || 'Searching filings & generating answer…'} />
-        </div>
-      )}
+        )}
 
-      {/* Error display */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error.message || 'An error occurred while streaming.'}</span>
-        </div>
-      )}
-
-      <div ref={bottomRef} />
+        <div ref={bottomRef} />
+      </div>
     </div>
   )
 }
+

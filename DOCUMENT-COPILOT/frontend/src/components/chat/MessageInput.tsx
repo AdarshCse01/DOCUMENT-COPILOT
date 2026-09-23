@@ -1,10 +1,8 @@
-import React, { useRef, useEffect } from 'react'
-import { ArrowUp, Square } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import React, { useRef } from 'react'
 
 interface MessageInputProps {
   input: string
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
   isLoading?: boolean
   onStop?: () => void
@@ -18,88 +16,53 @@ export function MessageInput({
   onSubmit,
   isLoading = false,
   onStop,
-  placeholder = 'Ask a question about SEC 10-K filings (e.g. Apple FY24 net sales, Azure cloud revenue)…',
+  placeholder = 'Ask about SEC filings...',
   disabled = false,
 }: MessageInputProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // Auto-resize textarea height
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`
-    }
-  }, [input])
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      if (input.trim() && !isLoading && !disabled) {
-        const form = e.currentTarget.form
-        if (form) {
-          form.requestSubmit()
-        }
-      }
-    }
-  }
+  const inputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="w-full border-t border-border bg-background p-4 md:px-8">
+    <div className="w-full bg-white px-4 py-4 border-t border-zinc-100">
       <form
         onSubmit={onSubmit}
-        className="mx-auto flex max-w-4xl flex-col gap-2"
+        className="mx-auto flex max-w-3xl items-center gap-2 w-full"
         id="chat-input-form"
       >
-        <div className="relative flex w-full items-end rounded-xl border border-border bg-card shadow-xs transition-all focus-within:border-foreground focus-within:ring-1 focus-within:ring-foreground">
-          <textarea
-            ref={textareaRef}
-            id="chat-message-input"
-            rows={1}
-            value={input}
-            onChange={onChange}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            placeholder={placeholder}
-            className="max-h-44 min-h-[44px] w-full resize-none bg-transparent px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-          />
+        <input
+          ref={inputRef}
+          type="text"
+          id="chat-message-input"
+          value={input}
+          onChange={onChange}
+          disabled={disabled || isLoading}
+          placeholder={placeholder}
+          autoComplete="off"
+          className="flex-1 h-10 rounded-lg border border-zinc-200 bg-white px-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 transition-colors"
+        />
 
-          <div className="flex shrink-0 p-2">
-            {isLoading ? (
-              <Button
-                type="button"
-                id="stop-streaming-btn"
-                variant="destructive"
-                size="icon"
-                onClick={onStop}
-                title="Stop generation"
-                className="h-8 w-8 rounded-lg cursor-pointer"
-              >
-                <Square className="h-3.5 w-3.5 fill-current" />
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                id="send-message-btn"
-                size="icon"
-                disabled={!input.trim() || disabled}
-                title="Send message"
-                className="h-8 w-8 rounded-lg bg-foreground text-background hover:bg-foreground/90 disabled:opacity-30 cursor-pointer"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
-          <span>
-            Strict SEC 10-K Grounding · Zero Hallucination
-          </span>
-          <span className="hidden sm:inline-block">
-            <kbd className="rounded border border-border bg-muted/60 px-1 py-0.5 font-mono text-[10px]">Enter ↵</kbd> to send · <kbd className="rounded border border-border bg-muted/60 px-1 py-0.5 font-mono text-[10px]">Shift+Enter</kbd> for newline
-          </span>
-        </div>
+        {isLoading ? (
+          <button
+            type="button"
+            id="stop-streaming-btn"
+            onClick={onStop}
+            title="Stop generation"
+            className="h-10 px-4 rounded-lg bg-zinc-600 hover:bg-zinc-700 text-white text-sm font-medium transition-colors cursor-pointer"
+          >
+            Stop
+          </button>
+        ) : (
+          <button
+            type="submit"
+            id="send-message-btn"
+            disabled={!input.trim() || disabled}
+            title="Send message"
+            className="h-10 px-4 rounded-lg bg-zinc-600 hover:bg-zinc-700 disabled:opacity-50 text-white text-sm font-medium transition-colors cursor-pointer"
+          >
+            Send
+          </button>
+        )}
       </form>
     </div>
   )
 }
+

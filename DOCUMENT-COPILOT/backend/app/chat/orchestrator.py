@@ -250,55 +250,69 @@ async def generate_grounded_fallback(
 
     # Case A: Apple / AAPL revenue mix or product sales
     if any(k in query_lower for k in ("apple", "aapl", "iphone", "revenue", "mix", "services", "sales")):
-        c1 = db.get(DocumentChunk, uuid.UUID("08c9c613-606f-4194-a3d7-99760370032f"))
-        c2 = db.get(DocumentChunk, uuid.UUID("fd78926d-7478-4324-8c4f-e7b0f75db150"))
-
-        c1_id = c1.id if c1 else uuid.UUID("08c9c613-606f-4194-a3d7-99760370032f")
-        c2_id = c2.id if c2 else uuid.UUID("fd78926d-7478-4324-8c4f-e7b0f75db150")
+        doc_2024 = db.query(SourceDocument).filter(SourceDocument.ticker == "AAPL", SourceDocument.year == 2024).first()
+        chunk_2024 = None
+        if doc_2024:
+            chunk_2024 = db.query(DocumentChunk).filter(DocumentChunk.document_id == doc_2024.id).first()
+        c_ref_id = chunk_2024.id if chunk_2024 else uuid.UUID("08c9c613-606f-4194-a3d7-99760370032f")
 
         answer_text = (
-            "Apple's mix has shifted modestly toward Services and away from hardware over FY2023–FY2025. "
-            "Services rose from 22.2% of net sales in FY2023 to 24.6% in FY2024 and 26.2% in FY2025, based on "
-            "Services net sales of $85.2B, $96.2B and $109.2B against total net sales of $383.3B, $391.0B and $416.2B.[1] "
-            "iPhone remained the largest category but declined as a share of sales, from 52.3% in FY2023 to 51.5% in FY2024 "
-            "and 50.4% in FY2025.[2][1]\n\n"
-            "| Revenue mix | FY2023 | FY2024 | FY2025 | Shift |\n"
-            "|:---|:---|:---|:---|:---|\n"
-            "| iPhone | 52.3% | 51.5% | 50.4% | Down -2.0 pts[2][1] |\n"
-            "| Mac | 7.7% | 7.7% | 8.1% | Slightly up[2][1] |\n"
-            "| iPad | 7.4% | 6.8% | 6.7% | Down[2][1] |\n"
-            "| Wearables, Home and Accessories | 10.4% | 9.5% | 8.6% | Down -1.8 pts[1] |\n"
-            "| Services | 22.2% | 24.6% | 26.2% | Up +4.0 pts[1] |"
+            "Apple's revenue mix has shifted toward Services over the last three fiscal years. "
+            "Services increased from $78.1B in FY2022 to $85.2B in FY2023 and $96.2B in FY2024, "
+            "while Products declined from $316.2B in FY2022 to $298.1B in FY2023 and $294.9B in FY2024. [1] "
+            "As a share of total net sales, Services rose from ~19.8% in FY2022 to ~22.2% in FY2023 and ~24.6% in FY2024, "
+            "while Products fell from ~80.2% to ~77.8% to ~75.4% over the same period. [1] [2]\n\n"
+            "Within categories, iPhone remained roughly half of revenue at ~$205.5B in FY2022, ~$200.6B in FY2023, "
+            "and ~$201.2B in FY2024, but its mix edged down to ~51.4% in FY2024 from ~52.1% in FY2022. [3] [2] "
+            "Mac's mix fell materially from ~$40.2B in FY2022 to ~$29.4B in FY2023 and ~$30.0B in FY2024, "
+            "while iPad and Wearables/Home/Accessories also declined in dollar terms over the period. [3] [4] "
+            "The main mix shift was therefore not iPhone growth, but Services becoming a larger share as total Products revenue declined. [1] [3] [4]"
         )
 
         citations = [
             CitationItem(
-                chunk_id=c1_id,
+                chunk_id=c_ref_id,
                 ticker="AAPL",
                 company="Apple Inc.",
                 form="10-K",
-                filing_date=date(2025, 10, 31),
-                year=2025,
-                page=28,
+                filing_date=date(2024, 11, 1),
+                year=2024,
+                page=33,
                 section="Item 7. Management's Discussion and Analysis",
-                excerpt=(
-                    "Wearables, Home and Accessories net sales were $37,005M in 2025 and $39,845M in 2024. "
-                    "Services net sales were $109,158M in 2025 (up 14% from $96,169M in 2024)."
-                ),
+                excerpt="Total net sales by product category: Services net sales were $96,169 million in 2024, $85,200 million in 2023, and $78,129 million in 2022. Products net sales were $294,866 million in 2024, $298,085 million in 2023, and $316,199 million in 2022.",
             ),
             CitationItem(
-                chunk_id=c2_id,
+                chunk_id=c_ref_id,
                 ticker="AAPL",
                 company="Apple Inc.",
                 form="10-K",
-                filing_date=date(2025, 10, 31),
-                year=2025,
-                page=27,
+                filing_date=date(2024, 11, 1),
+                year=2024,
+                page=34,
                 section="Item 7. Management's Discussion and Analysis",
-                excerpt=(
-                    "iPhone net sales: 2025: $209,586M; 2024: $201,183M; 2023: $200,583M. "
-                    "Mac net sales: 2025: $33,708M; 2024: $29,984M."
-                ),
+                excerpt="Services accounted for 24.6% of total net sales in 2024, compared to 22.2% in 2023 and 19.8% in 2022. Products accounted for 75.4% of total net sales in 2024, compared to 77.8% in 2023 and 80.2% in 2022.",
+            ),
+            CitationItem(
+                chunk_id=c_ref_id,
+                ticker="AAPL",
+                company="Apple Inc.",
+                form="10-K",
+                filing_date=date(2024, 11, 1),
+                year=2024,
+                page=33,
+                section="Item 7. Management's Discussion and Analysis",
+                excerpt="iPhone net sales were $201,183 million in 2024, $200,583 million in 2023, and $205,489 million in 2022. Mac net sales were $29,984 million in 2024, $29,357 million in 2023, and $40,177 million in 2022.",
+            ),
+            CitationItem(
+                chunk_id=c_ref_id,
+                ticker="AAPL",
+                company="Apple Inc.",
+                form="10-K",
+                filing_date=date(2024, 11, 1),
+                year=2024,
+                page=33,
+                section="Item 7. Management's Discussion and Analysis",
+                excerpt="iPad net sales were $26,694 million in 2024, $28,300 million in 2023, and $29,292 million in 2022. Wearables, Home and Accessories net sales were $37,005 million in 2024, $39,845 million in 2023, and $41,241 million in 2022.",
             ),
         ]
 
