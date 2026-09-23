@@ -1,4 +1,5 @@
-import { Search, Brain, ShieldCheck, Sparkles, Loader2 } from 'lucide-react'
+import { Search, Brain, ShieldCheck, Sparkles } from 'lucide-react'
+import { Loader } from '@/components/prompt-kit/loader'
 
 interface StreamingIndicatorProps {
   status?: string
@@ -21,7 +22,7 @@ export function StreamingIndicator({ status = 'Processing query…' }: Streaming
       id="streaming-indicator"
       className="inline-flex items-center gap-2.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground shadow-xs animate-in fade-in duration-200"
     >
-      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+      <Loader variant="circular" size="sm" />
       <div className="flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5 text-foreground" />
         <span className="font-normal text-muted-foreground">{status}</span>

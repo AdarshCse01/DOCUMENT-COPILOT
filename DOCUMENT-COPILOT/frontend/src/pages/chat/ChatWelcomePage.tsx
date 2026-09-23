@@ -6,6 +6,7 @@ import { useChatContext } from '@/components/chat/useChatContext'
 import { MessageInput } from '@/components/chat/MessageInput'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { PromptSuggestion } from '@/components/prompt-kit/prompt-suggestion'
 
 const STARTER_PROMPTS = [
   {
@@ -125,6 +126,22 @@ export default function ChatWelcomePage() {
                 </Card>
               )
             })}
+          </div>
+
+          {/* Quick Prompt Suggestion Pills */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mr-1">
+              Suggestions:
+            </span>
+            <PromptSuggestion onClick={() => handleStartChat("What was Apple's iPhone revenue in FY24?")}>
+              Apple iPhone FY24 sales
+            </PromptSuggestion>
+            <PromptSuggestion onClick={() => handleStartChat("Compare Microsoft Azure revenue growth.")}>
+              Microsoft Azure growth
+            </PromptSuggestion>
+            <PromptSuggestion onClick={() => handleStartChat("Summarize NVIDIA Data Center revenue.")}>
+              NVIDIA Data Center
+            </PromptSuggestion>
           </div>
         </div>
       </div>
