@@ -9,12 +9,14 @@ import { env } from './env'
 import { getAccessToken } from './supabase'
 
 export class HttpError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly body: unknown,
-  ) {
+  readonly status: number
+  readonly body: unknown
+
+  constructor(status: number, body: unknown) {
     super(`HTTP ${status}`)
     this.name = 'HttpError'
+    this.status = status
+    this.body = body
   }
 }
 

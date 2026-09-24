@@ -1,5 +1,11 @@
-import React, { useState } from 'react'
-import { Plus, X, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+import {
+  Plus,
+  X,
+  MoreHorizontal,
+  Trash2,
+  LogOut,
+} from 'lucide-react'
 import { type ChatThread } from '@/lib/api'
 import {
   DropdownMenu,
@@ -18,22 +24,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 
-function formatRelativeTime(dateStr?: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-
-  if (diffSec < 60) return `${Math.max(1, diffSec)} s...`
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays === 1) return 'Yesterday'
-  return `${diffDays} days ago`
-}
-
 interface ThreadSidebarProps {
   threads: ChatThread[]
   activeThreadId?: string
@@ -49,6 +39,35 @@ interface ThreadSidebarProps {
   onToggleCollapse?: () => void
 }
 
+function groupThreadsByDate(threads: ChatThread[]) {
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const sevenDaysAgo = startOfToday - 7 * 24 * 60 * 60 * 1000
+
+  const today: ChatThread[] = []
+  const previous7Days: ChatThread[] = []
+  const older: ChatThread[] = []
+
+  for (const thread of threads) {
+    const timeStr = thread.created_at || thread.updated_at
+    const threadTime = timeStr ? new Date(timeStr).getTime() : 0
+    if (threadTime >= startOfToday) {
+      today.push(thread)
+    } else if (threadTime >= sevenDaysAgo) {
+      previous7Days.push(thread)
+    } else {
+      older.push(thread)
+    }
+  }
+
+  // If timestamps are unavailable, display all in today or single bucket
+  if (today.length === 0 && previous7Days.length === 0 && older.length === 0 && threads.length > 0) {
+    today.push(...threads)
+  }
+
+  return { today, previous7Days, older }
+}
+
 export function ThreadSidebar({
   threads,
   activeThreadId,
@@ -56,6 +75,7 @@ export function ThreadSidebar({
   onNewChat,
   onDeleteThread,
   onRenameThread,
+  userEmail,
   onSignOut,
   isOpen = true,
   onCloseMobile,
@@ -65,12 +85,6 @@ export function ThreadSidebar({
   const [renameTarget, setRenameTarget] = useState<ChatThread | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
-
-  const openRenameDialog = (thread: ChatThread, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setRenameTarget(thread)
-    setRenameValue(thread.title || '')
-  }
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,6 +103,53 @@ export function ThreadSidebar({
     }
   }
 
+  const groups = useMemo(() => groupThreadsByDate(threads), [threads])
+
+  const initials = useMemo(() => {
+    if (!userEmail) return 'DA'
+    const namePart = userEmail.split('@')[0]
+    return namePart.slice(0, 2).toUpperCase()
+  }, [userEmail])
+
+  const renderThreadItem = (thread: ChatThread) => {
+    const isActive = thread.id === activeThreadId
+
+    return (
+      <div
+        key={thread.id}
+        id={`thread-item-${thread.id}`}
+        onClick={() => {
+          onSelectThread(thread.id)
+          onCloseMobile?.()
+        }}
+        className={`group relative flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+          isActive
+            ? 'bg-zinc-100 text-zinc-900 font-medium'
+            : 'text-zinc-700 hover:bg-zinc-50 font-normal'
+        }`}
+      >
+        <span
+          className="truncate pr-1 text-zinc-800 flex-1 min-w-0"
+          title={thread.title || 'New chat'}
+        >
+          {thread.title || 'New chat'}
+        </span>
+
+        <button
+          type="button"
+          id={`thread-delete-${thread.id}`}
+          aria-label="Delete thread"
+          onClick={(e) => onDeleteThread(thread.id, e)}
+          className={`h-5 w-5 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-800 transition-opacity cursor-pointer shrink-0 ${
+            isActive ? 'opacity-100 text-zinc-600' : 'opacity-0 group-hover:opacity-100'
+          }`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -102,131 +163,137 @@ export function ThreadSidebar({
       {/* Main Sidebar Element */}
       <aside
         id="chat-sidebar"
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-zinc-200 bg-white transition-all duration-200 ease-in-out md:static ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out md:static ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        } ${isCollapsed ? 'md:hidden' : 'w-64'}`}
+        } ${
+          isCollapsed
+            ? 'md:w-0 md:opacity-0 md:border-r-0 md:pointer-events-none overflow-hidden'
+            : 'md:w-64 md:opacity-100 overflow-hidden'
+        }`}
       >
-        {/* Brand Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <div>
-            <div className="font-semibold text-[15px] text-zinc-900 leading-tight">Document Copilot</div>
-            <div className="text-xs text-zinc-500 mt-0.5">SEC filing assistant</div>
+        <div className="w-64 flex flex-col h-full shrink-0">
+          {/* Brand Header */}
+          <div className="flex items-center justify-between px-3 pt-3.5 pb-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-black text-white shrink-0 p-1 shadow-2xs">
+                <img src="/log.png" alt="Document Copilot" className="h-5 w-5 object-contain" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-xs text-zinc-900 leading-tight">Document Copilot</span>
+                <span className="text-[11px] text-zinc-500 leading-tight">SEC filing assistant</span>
+              </div>
+            </div>
+
+            {/* Mobile Close Button */}
+            <button
+              type="button"
+              id="mobile-sidebar-close-btn"
+              onClick={onCloseMobile}
+              aria-label="Close sidebar"
+              className="flex md:hidden h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Mobile Close Button */}
-          <button
-            type="button"
-            id="mobile-sidebar-close-btn"
-            onClick={onCloseMobile}
-            aria-label="Close sidebar"
-            className="flex md:hidden h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+          {/* Action: New Chat Button */}
+          <div className="px-2.5 pb-3">
+            <button
+              type="button"
+              id="new-chat-btn"
+              onClick={() => {
+                onNewChat()
+                onCloseMobile?.()
+              }}
+              className="w-full flex items-center justify-start gap-2 bg-white hover:bg-zinc-50 border border-zinc-200/90 text-zinc-700 rounded-lg px-2.5 py-1.5 text-xs font-normal transition-colors cursor-pointer shadow-2xs"
+            >
+              <Plus className="h-3.5 w-3.5 text-zinc-600" />
+              <span>New chat</span>
+            </button>
+          </div>
 
-        {/* Action: New Chat Button */}
-        <div className="px-4 pb-3">
-          <button
-            type="button"
-            id="new-chat-btn"
-            onClick={() => {
-              onNewChat()
-              onCloseMobile?.()
-            }}
-            className="w-full flex items-center justify-start gap-2 bg-black text-white hover:bg-zinc-800 rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>New chat</span>
-          </button>
-        </div>
-
-        {/* Separator and Section Header */}
-        <hr className="border-t border-zinc-200 mx-4 my-1" />
-        <div className="px-4 pt-2 pb-1 text-xs font-normal text-zinc-500">Conversations</div>
-
-        {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
-          {threads.length === 0 ? (
-            <div className="px-3 py-6 text-center text-xs text-zinc-400">
-              No conversations yet.
-            </div>
-          ) : (
-            threads.map((thread) => {
-              const isActive = thread.id === activeThreadId
-
-              return (
-                <div
-                  key={thread.id}
-                  id={`thread-item-${thread.id}`}
-                  onClick={() => {
-                    onSelectThread(thread.id)
-                    onCloseMobile?.()
-                  }}
-                  className={`group relative flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-xs transition-colors ${
-                    isActive
-                      ? 'bg-zinc-100 text-zinc-900 font-semibold'
-                      : 'text-zinc-800 hover:bg-zinc-50 font-medium'
-                  }`}
-                >
-                  <span className="truncate pr-2">{thread.title || 'New chat'}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-[11px] text-zinc-400 font-normal">
-                      {formatRelativeTime(thread.created_at || thread.updated_at)}
-                    </span>
-
-                    {/* 3-Dot Dropdown Menu for Rename and Delete on hover */}
-                    <div
-                      className="shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            id={`thread-menu-${thread.id}`}
-                            aria-label="Thread actions"
-                            className="h-5 w-5 flex items-center justify-center rounded text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-zinc-200 hover:text-zinc-900 transition-opacity"
-                          >
-                            <MoreHorizontal className="h-3 w-3" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-32 bg-white border border-zinc-200 shadow-md">
-                          <DropdownMenuItem
-                            onClick={(e) => openRenameDialog(thread, e)}
-                            className="cursor-pointer text-xs"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            <span>Rename</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => onDeleteThread(thread.id, e)}
-                            className="cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>Delete</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+          {/* Conversations List grouped by time */}
+          <div className="flex-1 overflow-y-auto px-2 space-y-3">
+            {threads.length === 0 ? (
+              <div className="px-3 py-6 text-center text-xs text-zinc-400">
+                No conversations yet.
+              </div>
+            ) : (
+              <>
+                {groups.today.length > 0 && (
+                  <div>
+                    <div className="px-2 pb-1 text-[11px] font-medium text-zinc-400">
+                      Today
+                    </div>
+                    <div className="space-y-0.5">
+                      {groups.today.map(renderThreadItem)}
                     </div>
                   </div>
-                </div>
-              )
-            })
-          )}
-        </div>
+                )}
 
-        {/* Sign Out Button Footer */}
-        <div className="p-4 border-t border-zinc-200 mt-auto">
-          <button
-            type="button"
-            id="sidebar-sign-out-btn"
-            onClick={onSignOut}
-            className="w-full py-2 px-3 border border-zinc-200 rounded-lg text-sm text-zinc-800 bg-white hover:bg-zinc-50 text-center font-medium transition-colors cursor-pointer"
-          >
-            Sign out
-          </button>
+                {groups.previous7Days.length > 0 && (
+                  <div>
+                    <div className="px-2 pb-1 text-[11px] font-medium text-zinc-400">
+                      Previous 7 Days
+                    </div>
+                    <div className="space-y-0.5">
+                      {groups.previous7Days.map(renderThreadItem)}
+                    </div>
+                  </div>
+                )}
+
+                {groups.older.length > 0 && (
+                  <div>
+                    <div className="px-2 pb-1 text-[11px] font-medium text-zinc-400">
+                      Older
+                    </div>
+                    <div className="space-y-0.5">
+                      {groups.older.map(renderThreadItem)}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* User Profile Footer */}
+          <div className="p-2.5 border-t border-zinc-200/80 mt-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="h-6 w-6 rounded-full bg-zinc-900 text-white text-[10px] font-medium flex items-center justify-center shrink-0">
+                {initials}
+              </div>
+              <span className="text-xs font-normal text-zinc-800 truncate">
+                {userEmail || 'dave@driftwood.com'}
+              </span>
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  id="sidebar-user-menu-btn"
+                  aria-label="User actions"
+                  className="h-6 w-6 flex items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 transition-colors cursor-pointer shrink-0"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-white border border-zinc-200 shadow-md">
+                <div className="px-2 py-1.5 text-xs text-zinc-500">
+                  Signed in as <strong className="text-zinc-900 block truncate">{userEmail || 'dave@driftwood.com'}</strong>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onSignOut}
+                  id="sidebar-sign-out-btn"
+                  className="cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Sign out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </aside>
 

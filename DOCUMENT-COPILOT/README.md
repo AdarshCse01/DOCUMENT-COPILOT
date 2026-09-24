@@ -49,20 +49,68 @@ You also need accounts/keys for external services once the app is wired up. Star
 
 ## Running locally
 
-To be added during the build. Setup guides:
+### 1. Environment variables
 
-- [Supabase](docs/guides/supabase-setup.md) — account, hosted project (dashboard or CLI)
-- [Backend](docs/guides/backend-setup.md)
-- [Frontend](docs/guides/frontend-setup.md)
+Copy the example env files:
 
-## Sample SEC data
+```bash
+# Backend env
+cp backend/.env.example backend/.env
 
-Use the standalone downloader to fetch a small local 10-K sample from SEC EDGAR.
-Edit the params at the top of `data/download.py`, especially `USER_AGENT`, then run:
+# Frontend env
+cp frontend/.env.example frontend/.env
+```
+
+Fill in your `DATABASE_URL` (Supabase Postgres), `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `OPENAI_API_KEY`.
+
+### 2. Backend service
+
+```bash
+cd backend
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
+```
+API runs on `http://localhost:8000` (docs at `http://localhost:8000/docs`).
+
+### 3. Frontend application
+
+In a separate terminal:
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+Client runs on `http://localhost:5173`.
+
+---
+
+## Corpus Ingestion & Updates
+
+The sample corpus contains SEC 10-K filings for Apple (AAPL), Microsoft (MSFT), NVIDIA (NVDA), Amazon (AMZN), and Alphabet (GOOGL).
+
+### 1. Download filings from SEC EDGAR
 
 ```bash
 uv run data/download.py
 ```
+Downloads filings into `data/downloads/` and generates `manifest.json`.
 
-By default this downloads the latest 5 10-K filings for AAPL, MSFT, NVDA, AMZN, and GOOGL into year folders under `data/downloads/` and writes a `manifest.json`.
-Downloaded files are gitignored; the `data/` folder itself stays in git for the script and notes.
+### 2. Seed source documents into Postgres
+
+```bash
+cd backend
+uv run python -m ingest.seed_source_documents
+```
+
+### 3. Chunk and embed filings
+
+```bash
+cd backend
+# Dry run to inspect chunking:
+uv run python -m ingest.ingest_chunks --dry-run --ticker AAPL
+
+# Full ingestion into pgvector:
+uv run python -m ingest.ingest_chunks --strategy hybrid
+```

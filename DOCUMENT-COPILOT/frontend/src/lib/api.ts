@@ -96,3 +96,30 @@ export const deleteThread = (threadId: string) =>
 /** GET /chat/threads/:threadId/messages — loads message history. */
 export const listThreadMessages = (threadId: string) =>
   get<ChatMessage[]>(`/chat/threads/${threadId}/messages`)
+
+// ---------------------------------------------------------------------------
+// Chunk & Source Passage Context
+// ---------------------------------------------------------------------------
+
+export interface ChunkContextItem {
+  id: string
+  chunk_index: number
+  page?: number | null
+  section?: string | null
+  content: string
+  is_target: boolean
+}
+
+export interface ChunkContextResponse {
+  target_chunk_id: string
+  ticker?: string | null
+  company?: string | null
+  form?: string | null
+  year?: number | null
+  chunks: ChunkContextItem[]
+}
+
+/** GET /chat/chunks/:chunkId/context — loads surrounding chunks for context expansion */
+export const getChunkContext = (chunkId: string, window = 1) =>
+  get<ChunkContextResponse>(`/chat/chunks/${chunkId}/context?window=${window}`)
+

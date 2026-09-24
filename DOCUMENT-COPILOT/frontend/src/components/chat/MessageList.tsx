@@ -1,7 +1,16 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { AlertCircle, AlertTriangle } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  Bot,
+  ThumbsUp,
+  ThumbsDown,
+  Copy,
+  Check,
+  FileDown,
+} from 'lucide-react'
 import { StreamingIndicator } from './StreamingIndicator'
 import { CitationChip } from './CitationChip'
 import type { CitationItem } from '@/lib/api'
@@ -94,8 +103,12 @@ function renderContentWithCitations(
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  onClick={() => onSelectCitation?.(citation)}
-                  className={`inline-flex items-center justify-center rounded px-1 py-0.2 text-[10px] font-mono font-medium transition-all cursor-pointer align-baseline ${
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onSelectCitation?.(citation)
+                  }}
+                  className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-mono font-medium transition-all cursor-pointer align-baseline ${
                     isSelected
                       ? 'bg-zinc-900 text-white ring-1 ring-zinc-900'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -115,7 +128,7 @@ function renderContentWithCitations(
                   </p>
                 )}
                 <div className="text-[10px] text-zinc-400 pt-0.5">
-                  Click to inspect full source passage
+                  Click to inspect full source passage & context
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -159,21 +172,69 @@ function FormattedMessageText({
             )}
           </p>
         ),
+        li: ({ children }) => (
+          <li className="leading-relaxed text-zinc-900">
+            {React.Children.map(children, (child) =>
+              typeof child === 'string'
+                ? renderContentWithCitations(child, citations, selectedCitation, onSelectCitation)
+                : child,
+            )}
+          </li>
+        ),
+        a: ({ href, children, ...props }) => {
+          const childText = React.Children.toArray(children).join('')
+          const match = childText.match(/\[?(\d+)\]?/)
+          if (match) {
+            const idx = parseInt(match[1], 10)
+            const citation = citations[idx - 1]
+            if (citation) {
+              return (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onSelectCitation?.(citation)
+                  }}
+                  className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-mono font-medium transition-all cursor-pointer align-baseline ${
+                    selectedCitation?.chunk_id === citation.chunk_id
+                      ? 'bg-zinc-900 text-white ring-1 ring-zinc-900'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  }`}
+                >
+                  [{idx}]
+                </button>
+              )
+            }
+          }
+          return (
+            <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+              {children}
+            </a>
+          )
+        },
         table: ({ children }) => (
-          <div className="my-4 overflow-x-auto rounded-lg border border-zinc-200">
+          <div className="my-4 overflow-x-auto rounded-xl border border-zinc-200/90 bg-white">
             <table className="w-full text-left text-xs border-collapse">{children}</table>
           </div>
         ),
         thead: ({ children }) => (
-          <thead className="bg-zinc-50 border-b border-zinc-200">{children}</thead>
+          <thead className="bg-zinc-50/80 border-b border-zinc-200 text-zinc-900 font-semibold">
+            {children}
+          </thead>
         ),
         th: ({ children }) => (
-          <th className="px-3 py-2 font-semibold text-zinc-900 border-r border-zinc-200 last:border-r-0">
+          <th className="px-4 py-2.5 font-semibold text-zinc-900 border-b border-zinc-200 whitespace-nowrap">
             {children}
           </th>
         ),
+        tr: ({ children }) => (
+          <tr className="border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50/50 transition-colors">
+            {children}
+          </tr>
+        ),
         td: ({ children }) => (
-          <td className="px-3 py-2 border-t border-zinc-200 border-r last:border-r-0 text-zinc-800">
+          <td className="px-4 py-2.5 text-zinc-800">
             {React.Children.map(children, (child) =>
               typeof child === 'string'
                 ? renderContentWithCitations(child, citations, selectedCitation, onSelectCitation)
@@ -185,6 +246,89 @@ function FormattedMessageText({
     >
       {text}
     </ReactMarkdown>
+  )
+}
+
+function MessageActions({ text }: { text: string }) {
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy text:', err)
+    }
+  }
+
+  const handleExport = () => {
+    try {
+      const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `filing-analysis-${Date.now()}.md`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Failed to export text:', err)
+    }
+  }
+
+  return (
+    <div className="mt-3.5 flex items-center justify-end gap-1 border-t border-zinc-100/90 pt-2 text-zinc-400">
+      <button
+        type="button"
+        title="Good response"
+        onClick={() => setFeedback((prev) => (prev === 'up' ? null : 'up'))}
+        className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors cursor-pointer ${
+          feedback === 'up'
+            ? 'text-emerald-600 bg-emerald-50'
+            : 'hover:bg-zinc-100 hover:text-zinc-700'
+        }`}
+      >
+        <ThumbsUp className="h-3.5 w-3.5" />
+      </button>
+
+      <button
+        type="button"
+        title="Bad response"
+        onClick={() => setFeedback((prev) => (prev === 'down' ? null : 'down'))}
+        className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors cursor-pointer ${
+          feedback === 'down'
+            ? 'text-rose-600 bg-rose-50'
+            : 'hover:bg-zinc-100 hover:text-zinc-700'
+        }`}
+      >
+        <ThumbsDown className="h-3.5 w-3.5" />
+      </button>
+
+      <button
+        type="button"
+        title={copied ? 'Copied to clipboard' : 'Copy to clipboard'}
+        onClick={handleCopy}
+        className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors cursor-pointer ${
+          copied
+            ? 'text-emerald-600 bg-emerald-50'
+            : 'hover:bg-zinc-100 hover:text-zinc-700'
+        }`}
+      >
+        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+
+      <button
+        type="button"
+        title="Export response (.md)"
+        onClick={handleExport}
+        className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-100 hover:text-zinc-700 transition-colors cursor-pointer"
+      >
+        <FileDown className="h-3.5 w-3.5" />
+      </button>
+    </div>
   )
 }
 
@@ -222,7 +366,7 @@ export function MessageList({
           if (isUser) {
             return (
               <div key={message.id} className="flex w-full justify-end">
-                <div className="max-w-[80%] rounded-2xl bg-zinc-950 text-white px-4 py-2.5 text-sm leading-relaxed font-normal shadow-xs">
+                <div className="max-w-[80%] rounded-2xl bg-zinc-100 text-zinc-900 border border-zinc-200/60 px-5 py-2.5 text-sm leading-relaxed font-normal shadow-2xs">
                   {text}
                 </div>
               </div>
@@ -231,8 +375,10 @@ export function MessageList({
 
           return (
             <div key={message.id} id={`message-${message.id}`} className="flex flex-col items-start w-full">
-              {/* Subtle avatar circle above card on the left matching reference */}
-              <div className="h-6 w-6 rounded-full border border-zinc-200 bg-white mb-2 shadow-2xs shrink-0" />
+              {/* Bot icon above card on the left matching reference screenshot */}
+              <div className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-200 bg-white mb-2 shadow-2xs shrink-0 text-zinc-700">
+                <Bot className="h-3.5 w-3.5" />
+              </div>
 
               {/* Assistant Message Card */}
               <div className="w-full rounded-2xl border border-zinc-200 bg-white p-6 text-sm text-zinc-900 shadow-none leading-relaxed">
@@ -254,7 +400,13 @@ export function MessageList({
 
                 {/* Citation Chips Shelf */}
                 {citations.length > 0 && (
-                  <div className="mt-5 border-t border-zinc-200 pt-3.5 flex flex-wrap items-center gap-2">
+                  <div className="mt-5 border-t border-zinc-100 pt-3.5 flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mr-1 select-none">
+                      <span>Sources</span>
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-100 px-1 text-[10px] font-normal text-zinc-600">
+                        {citations.length}
+                      </span>
+                    </div>
                     {citations.map((citation, idx) => (
                       <CitationChip
                         key={citation.chunk_id || idx}
@@ -266,6 +418,9 @@ export function MessageList({
                     ))}
                   </div>
                 )}
+
+                {/* Action Buttons: Thumbs Up, Thumbs Down, Copy, Export */}
+                <MessageActions text={text} />
               </div>
             </div>
           )
@@ -274,7 +429,9 @@ export function MessageList({
         {/* In-flight streaming indicator */}
         {isLoading && (
           <div className="flex flex-col items-start w-full">
-            <div className="h-6 w-6 rounded-full border border-zinc-200 bg-white mb-2 shadow-2xs shrink-0" />
+            <div className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-200 bg-white mb-2 shadow-2xs shrink-0 text-zinc-700">
+              <Bot className="h-3.5 w-3.5" />
+            </div>
             <StreamingIndicator status={streamingStatus || 'Searching filings & generating answer…'} />
           </div>
         )}
@@ -292,4 +449,3 @@ export function MessageList({
     </div>
   )
 }
-

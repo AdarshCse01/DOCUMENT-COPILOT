@@ -25,7 +25,7 @@
   Consolidate `index.css` to single monochrome OKLCH token set; remove `#root` width constraint, purple/blue accents, marketing typography; wire Geist sans+mono; delete dead `App.css`; fix `index.html` title.
 
 - [x] **2. Install prompt-kit components (message, prompt-input, markdown, code-block, chat-container, scroll-button, loader, prompt-suggestion, source) and shadcn primitives (dropdown-menu, avatar, badge, alert, hover-card)**
-  Configured all primitives with strict monochrome styling, CVA variants, and full TypeScript support without interactive CLI overwrite halts.
+  Configured all primitives with strict monochrome styling, CVA variants, and full TypeScript support without interactive CLI overwrite halts. 
 
 - [x] **3. Design-system conventions**
   Establish token-only styling, CVA variants, and shared composed components (`ThreadSidebar`, `CitationChip`, `SourcePassagePanel`, `StreamingIndicator`).

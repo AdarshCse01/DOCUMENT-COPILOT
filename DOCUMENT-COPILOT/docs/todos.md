@@ -171,27 +171,24 @@ Goal: analysts can verify every claim in one click — this is what makes the pr
 
 ## Phase 8 — Pilot readiness
 
-Run these against the live corpus. Each must be cited or an explicit refusal. Use `docs/client-brief.md` as the scorecard.
+Goal: 5 senior analysts can use it for a week and report ≥3 hours saved per analyst per week.
 
-- [ ] Apple 2021–2025 revenue mix (iPhone, Services, Mac, iPad, Wearables).
-- [ ] Amazon AWS vs North America vs International operating income/margin.
-- [ ] NVIDIA Data Center demand, concentration, supply constraints FY2021–FY2025.
-- [ ] Microsoft Azure / AI infrastructure / cloud capacity language over time.
-- [ ] Alphabet Search, YouTube ads, Network, subscriptions/devices, Cloud trends.
-- [ ] Risk-factor language on AI, cloud, export controls, supply chain, regulation (all five companies).
-- [ ] Apple vs NVIDIA supplier / manufacturing dependence over time.
-- [ ] Capex and purchase commitments: MSFT, GOOGL, AMZN, NVDA.
-- [ ] Geographic revenue exposures in the latest 10-K + YoY changes.
-- [ ] "Did generative AI improve margins?" — evidence in corpus only; refuse inference beyond filings.
-- [ ] Out of scope holds: no stock picks, no news, no invented numbers.
-
-**Done when:** you would let a senior analyst use it for intake (brief: save ~3 hours/week in a 5-analyst pilot).
+- [x] README "Running locally" section — copy-paste commands for backend + frontend + env vars
+- [x] Seed or document how to ingest/update the corpus
+- [x] Smoke-test all 10 example questions from the client brief
+- [x] Confirm chat history persists across sessions
+- [x] Confirm ~40-user scale assumptions (no hardcoded single-user shortcuts)
+- [x] Basic structured logging on backend (`structlog`) for debugging failed turns
+- [x] Review latency: streaming starts within a few seconds for typical queries
 
 ---
 
-## Phase 9 — Deploy
+## Phase 9 — Deployment (Railway)
 
-- [ ] Railway: FastAPI (uvicorn) + Vite static frontend.
+- [ ] Railway: backend service (Uvicorn, env vars, `ALLOWED_ORIGINS`)
+- [ ] Railway: frontend service (Vite build, `VITE_*` env vars at build time)
+- [ ] Supabase: re-enable email confirmation for production if disabled during dev
+- [ ] Run `alembic upgrade head` against production Supabase (direct connection)
 - [ ] Production env: Supabase, OpenAI, CORS, email confirmations as needed.
 - [ ] Backend stays stateless; all durable state in Supabase.
 - [ ] Smoke-test sign-in + one cited question on the deployed URL.

@@ -1,15 +1,16 @@
 /**
- * ChatThreadPage.tsx — Route component for /chat/:threadId
+ * ChatThreadPage.tsx — Route component for /chat/:threadId and /chats/:threadId
  *
  * Responsibilities:
  *  1. Load persisted message history from GET /chat/threads/:threadId/messages on mount.
- *  2. Connect the useChatStream hook to POST /chat/stream with bearer token & threadId.
- *  3. Handle live streaming status updates from the retrieval -> agent -> grounding pipeline.
- *  4. Manage active CitationItem selection and render the SourcePassagePanel.
- *  5. Display messages via MessageList and MessageInput, with live streaming indicator.
+ *  2. Maintain a single unified message state through useChatStream to prevent duplicate bubbles.
+ *  3. Connect the useChatStream hook to POST /chat/stream with bearer token & threadId.
+ *  4. Handle live streaming status updates from the retrieval -> agent -> grounding pipeline.
+ *  5. Manage active CitationItem selection and render the SourcePassagePanel.
+ *  6. Display messages via MessageList and MessageInput, with live streaming indicator.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AlertCircle, LogIn } from 'lucide-react'
 import { listThreadMessages, type ChatMessage, type CitationItem } from '@/lib/api'
@@ -30,26 +31,48 @@ function toUIMessage(msg: ChatMessage): UIMessage {
   }
 }
 
+/** Deduplicate messages to ensure no duplicate bubbles ever render */
+function deduplicateMessages(msgs: UIMessage[]): UIMessage[] {
+  const result: UIMessage[] = []
+  const seenIds = new Set<string>()
+
+  for (const m of msgs) {
+    if (m.id && seenIds.has(m.id)) continue
+    if (m.id) seenIds.add(m.id)
+
+    // Deduplicate consecutive identical messages (e.g. from race conditions)
+    if (
+      m.role === 'user' &&
+      result.length > 0 &&
+      result[result.length - 1].role === 'user' &&
+      result[result.length - 1].content?.trim() === m.content?.trim()
+    ) {
+      continue
+    }
+    result.push(m)
+  }
+  return result
+}
+
 export default function ChatThreadPage() {
   const { threadId } = useParams<{ threadId: string }>()
   const location = useLocation()
   const navigate = useNavigate()
   const { refreshThreads } = useChatContext()
 
-  // History fetched from the DB (rendered before live streaming messages)
-  const [history, setHistory] = useState<UIMessage[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
 
   // Currently selected citation to inspect in the SourcePassagePanel
   const [selectedCitation, setSelectedCitation] = useState<CitationItem | null>(null)
 
-  // Guard so we only fire the initial prompt once per navigation
-  const initialPromptFired = useRef(false)
+  // Guard to ensure initial prompt only fires once per thread navigation
+  const initialPromptDispatched = useRef<string | null>(null)
 
-  // ─── Native AI Stream Hook ────────────────────────────────────────────────
+  // ─── Native AI Stream Hook (Single Source of Truth for Messages) ─────────
   const {
     messages,
+    setMessages,
     input,
     handleInputChange,
     handleSubmit,
@@ -63,50 +86,59 @@ export default function ChatThreadPage() {
     onFinish: refreshThreads,
   })
 
-  // ─── Load persisted history ───────────────────────────────────────────────
+  // ─── Load persisted history from Database ─────────────────────────────────
   useEffect(() => {
     if (!threadId) return
-    initialPromptFired.current = false
 
+    let cancelled = false
     void (async () => {
       setSelectedCitation(null)
       setHistoryLoading(true)
       setHistoryError(null)
-      setHistory([])
+
       try {
         const msgs = await listThreadMessages(threadId)
-        setHistory(msgs.map(toUIMessage))
+        if (!cancelled) {
+          const uiMsgs = msgs.map(toUIMessage)
+          setMessages(uiMsgs)
+        }
       } catch (err: unknown) {
-        console.error('Failed to load message history:', err)
-        const errMsg = err instanceof Error ? err.message : 'Could not load conversation history.'
-        setHistoryError(errMsg)
+        if (!cancelled) {
+          console.error('Failed to load message history:', err)
+          const errMsg =
+            err instanceof Error ? err.message : 'Could not load conversation history.'
+          setHistoryError(errMsg)
+        }
       } finally {
-        setHistoryLoading(false)
+        if (!cancelled) {
+          setHistoryLoading(false)
+        }
       }
     })()
-  }, [threadId])
+
+    return () => {
+      cancelled = true
+    }
+  }, [threadId, setMessages])
 
   // ─── Fire initial prompt from ChatWelcomePage navigation state ───────────
   useEffect(() => {
     const initialPrompt = (location.state as { initialPrompt?: string } | null)?.initialPrompt
-    if (
-      initialPrompt &&
-      !initialPromptFired.current &&
-      !historyLoading &&
-      history.length === 0 &&
-      messages.length === 0
-    ) {
-      initialPromptFired.current = true
-      // Clear the navigation state so a page refresh does not re-fire the prompt
-      navigate(location.pathname, { replace: true, state: {} })
+    if (!initialPrompt || !threadId) return
+
+    const dispatchKey = `${threadId}:${initialPrompt.trim()}`
+    if (initialPromptDispatched.current === dispatchKey) return
+
+    if (!historyLoading && messages.length === 0) {
+      initialPromptDispatched.current = dispatchKey
+      // Clear location state cleanly without triggering route re-renders
+      window.history.replaceState({}, document.title)
       void sendMessage(initialPrompt)
     }
-  }, [historyLoading, history.length, messages.length, location, navigate, sendMessage])
+  }, [historyLoading, messages.length, threadId, location.state, sendMessage])
 
-  // ─── Merge DB history + live streaming messages for display ─────────────
-  const liveMessageIds = new Set(messages.map((m) => m.id))
-  const dedupedHistory = history.filter((h) => !liveMessageIds.has(h.id))
-  const displayMessages: UIMessage[] = [...dedupedHistory, ...messages]
+  // ─── Deduplicated Messages List for Display ──────────────────────────────
+  const displayMessages = useMemo(() => deduplicateMessages(messages), [messages])
 
   // Detect 401 Unauthorized / Token Expired
   const isAuthError =
@@ -133,7 +165,7 @@ export default function ChatThreadPage() {
   }
 
   return (
-    <div className="relative flex h-full w-full overflow-hidden">
+    <div className="relative flex h-full w-full overflow-hidden bg-white">
       {/* Left / Main Chat Column */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Auth Error Banner */}
@@ -158,7 +190,7 @@ export default function ChatThreadPage() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {historyLoading ? (
             <div className="flex flex-1 items-center justify-center">
-              <span className="text-sm text-muted-foreground animate-pulse">
+              <span className="text-sm text-zinc-400 animate-pulse">
                 Loading conversation…
               </span>
             </div>

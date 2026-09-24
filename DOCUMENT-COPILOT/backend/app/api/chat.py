@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user_record
@@ -23,6 +24,7 @@ from app.chat.streaming import DATA_STREAM_HEADERS
 from app.database import chats
 from app.database.models.user import User
 from app.database.session import get_db
+from app.retrieval.queries import get_chunk_by_id, get_surrounding_chunks
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -138,7 +140,9 @@ async def stream_chat(
         404 if the thread does not exist.
         403 if the thread belongs to another user.
     """
-    validate_thread_access(db, payload.thread_id, current_user.id)
+    thread = validate_thread_access(db, payload.thread_id, current_user.id)
+    if not thread:
+        thread = chats.get_thread(db, payload.thread_id)
 
     # Persist the latest incoming user message if present
     for message in reversed(payload.messages):
@@ -150,6 +154,11 @@ async def stream_chat(
                 content=message.content,
                 parts=message.parts,
             )
+            if thread and getattr(thread, "title", None) in ("New Chat", "New chat", "") and message.content.strip():
+                clean_title = message.content.strip()
+                if len(clean_title) > 80:
+                    clean_title = f"{clean_title[:77].strip()}…"
+                chats.update_thread_title(db, thread, clean_title)
             break
 
     generator = orchestrate_chat_turn(
@@ -162,4 +171,59 @@ async def stream_chat(
         generator,
         media_type="text/plain",
         headers=DATA_STREAM_HEADERS,
+    )
+
+
+class ChunkContextItem(BaseModel):
+    id: uuid.UUID
+    chunk_index: int
+    page: int | None = None
+    section: str | None = None
+    content: str
+    is_target: bool = False
+
+
+class ChunkContextResponse(BaseModel):
+    target_chunk_id: uuid.UUID
+    ticker: str | None = None
+    company: str | None = None
+    form: str | None = None
+    year: int | None = None
+    chunks: list[ChunkContextItem]
+
+
+@router.get("/chunks/{chunk_id}/context", response_model=ChunkContextResponse)
+async def get_chunk_context_endpoint(
+    chunk_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    window: int = 1,
+) -> ChunkContextResponse:
+    """Fetch the target chunk along with its surrounding neighboring chunks for context."""
+    window = min(max(1, window), 2)
+    target = get_chunk_by_id(db, chunk_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+
+    surrounding = get_surrounding_chunks(db, chunk_id, window=window)
+    items = []
+    for c in surrounding:
+        items.append(
+            ChunkContextItem(
+                id=c.id,
+                chunk_index=c.chunk_index,
+                page=c.page,
+                section=c.section,
+                content=c.content,
+                is_target=(c.id == chunk_id),
+            )
+        )
+
+    doc = target.document
+    return ChunkContextResponse(
+        target_chunk_id=chunk_id,
+        ticker=doc.ticker if doc else None,
+        company=doc.company if doc else None,
+        form=doc.form if doc else None,
+        year=doc.year if doc else None,
+        chunks=items,
     )

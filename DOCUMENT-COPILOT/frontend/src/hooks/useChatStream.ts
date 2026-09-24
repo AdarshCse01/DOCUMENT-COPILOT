@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, useEffect } from 'react'
 import { env } from '@/lib/env'
 import { getAccessToken } from '@/lib/supabase'
 import type { CitationItem } from '@/lib/api'
@@ -18,6 +18,19 @@ export function useChatStream({ threadId, onFinish }: UseChatStreamOptions) {
   const [liveCitations, setLiveCitations] = useState<CitationItem[]>([])
 
   const abortControllerRef = useRef<AbortController | null>(null)
+  const messagesRef = useRef<UIMessage[]>([])
+  messagesRef.current = messages
+
+  // Reset messages when switching threads
+  useEffect(() => {
+    setMessages([])
+    setError(null)
+    setIsLoading(false)
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+  }, [threadId])
 
   const stop = useCallback(() => {
     if (abortControllerRef.current) {
@@ -75,7 +88,7 @@ export function useChatStream({ threadId, onFinish }: UseChatStreamOptions) {
         }
 
         // Prepare message history in AI SDK format
-        const historyForBackend = [...messages, userMsg].map((m) => ({
+        const historyForBackend = [...messagesRef.current, userMsg].map((m) => ({
           role: m.role,
           content: m.content || '',
         }))

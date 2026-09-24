@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
-import { Menu, PanelLeftOpen } from 'lucide-react'
+import { Menu, PanelLeft, User } from 'lucide-react'
 import {
   deleteThread,
   listThreads,
@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { ThreadSidebar } from './ThreadSidebar'
 import { ChatContext } from './ChatContext'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useToast } from '@/components/common/Toast'
 
 const SIDEBAR_COLLAPSED_KEY = 'doc_copilot_sidebar_collapsed'
 
@@ -85,13 +86,16 @@ export function ChatLayout() {
     navigate('/')
   }
 
+  const { showToast } = useToast()
+
   const handleDeleteThread = async (threadId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     try {
       await deleteThread(threadId)
       setThreads((prev) => prev.filter((t) => t.id !== threadId))
+      showToast('Conversation deleted')
       if (activeThreadId === threadId) {
-        navigate('/')
+        navigate('/chats')
       }
     } catch (err) {
       console.error('Failed to delete thread:', err)
@@ -141,45 +145,52 @@ export function ChatLayout() {
         />
 
         {/* Main Content Area */}
-        <div className="relative flex flex-1 flex-col overflow-hidden">
+        <div className="relative flex flex-1 flex-col overflow-hidden min-w-0 bg-white">
           {/* Mobile Header with Sidebar Toggle */}
-          <header className="flex h-14 items-center justify-between border-b border-border/80 px-4 md:hidden">
+          <header className="flex h-14 items-center justify-between border-b border-border/80 px-4 md:hidden bg-white shrink-0">
             <button
               type="button"
               id="mobile-sidebar-toggle-btn"
               onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Open navigation menu"
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground"
             >
               <Menu className="h-5 w-5" />
             </button>
             <span className="font-semibold text-sm">Document Copilot</span>
-            <div className="w-9" />
+            <div
+              title={user?.email || 'User Profile'}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 text-xs"
+            >
+              <User className="h-4 w-4" />
+            </div>
           </header>
 
-          {/* Desktop Reopen Sidebar Button (when sidebar is collapsed) */}
-          {sidebarCollapsed && (
-            <div className="absolute top-3 left-3 z-30 hidden md:block">
+          {/* Desktop Navigation Header */}
+          <header className="hidden md:flex h-11 items-center px-4 shrink-0 border-b border-zinc-200/80 bg-white">
+            <div className="flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    id="expand-sidebar-btn"
-                    onClick={() => setSidebarCollapsed(false)}
-                    aria-label="Expand sidebar"
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card/90 text-foreground shadow-xs backdrop-blur-xs transition-colors hover:bg-accent"
+                    id="desktop-sidebar-toggle-btn"
+                    onClick={() => setSidebarCollapsed((prev) => !prev)}
+                    aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors cursor-pointer"
                   >
-                    <PanelLeftOpen className="h-4 w-4" />
+                    <PanelLeft className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  Expand sidebar <kbd className="ml-1 text-[10px] text-muted-foreground">Ctrl+B</kbd>
+                  {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} <kbd className="ml-1 text-[10px] text-zinc-400">Ctrl+B</kbd>
                 </TooltipContent>
               </Tooltip>
+              <span className="text-xs font-semibold text-zinc-900">Document Copilot</span>
             </div>
-          )}
+          </header>
 
           {/* Chat / Welcome Page */}
-          <main className="relative flex flex-1 flex-col overflow-hidden">
+          <main className="relative flex flex-1 flex-col overflow-hidden min-w-0">
             <Outlet />
           </main>
         </div>

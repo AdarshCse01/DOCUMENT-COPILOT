@@ -49,21 +49,25 @@ if settings.openai_api_key:
     os.environ["OPENAI_API_KEY"] = settings.openai_api_key.get_secret_value()
 
 QUERIES: dict[str, str] = {
-    "apple-mix": "Across Apple's 2021-2025 10-Ks, how did the revenue mix between iPhone, Services, Mac, iPad, and Wearables change?",
-    "nvda-datacenter": "How did NVIDIA describe demand drivers for its Data Center business from fiscal 2021 through fiscal 2025?",
-    "msft-azure": "Across Microsoft's 2021-2025 filings, what changed in the way the company describes Azure and AI infrastructure?",
-    "q10-refusal": "Do the filings prove that generative AI improved margins for any of these companies?",
+    "1-apple-mix": "Across Apple's 2021–2025 10-Ks, how did the revenue mix between iPhone, Services, Mac, iPad, and Wearables change, and which category appears to have contributed most to any mix shift?",
+    "2-amzn-segments": "For Amazon, compare AWS operating income and margin against North America and International from 2021–2025. In which years did AWS appear to fund losses or weaker profitability elsewhere?",
+    "3-nvda-datacenter": "How did NVIDIA describe demand drivers, customer concentration, and supply constraints for its Data Center business from fiscal 2021 through fiscal 2025?",
+    "4-msft-azure": "Across Microsoft's 2021–2025 filings, what changed in the way the company describes Azure, AI infrastructure, and cloud capacity constraints?",
+    "5-googl-segments": "For Alphabet, how did Google Search, YouTube ads, Google Network, subscriptions/platforms/devices, and Google Cloud revenue trends differ across the available 10-Ks?",
+    "6-risk-factors": "Which of the five companies added, removed, or materially changed risk-factor language related to AI, cloud infrastructure, export controls, supply chain concentration, or regulation between 2021 and 2025?",
+    "7-supplier-concentration": "For Apple and NVIDIA, what do the filings say about supplier concentration or dependence on third-party manufacturing, and did the wording become more or less urgent over time?",
+    "8-capex-commitments": "Compare capital expenditures and purchase commitments for Microsoft, Alphabet, Amazon, and NVIDIA. What do the filings imply about the scale and timing of AI/cloud infrastructure investment?",
+    "9-geographic-exposure": "For each company, summarize the most important geographic revenue exposures disclosed in the latest 10-K, then identify any year-over-year changes that could matter to an analyst.",
+    "10-q10-refusal": "If an analyst asks whether the filings prove that generative AI improved margins for any of these companies, what evidence exists in the corpus, and where should the bot refuse to infer beyond the filings?",
 }
 
 # =========================================================================
 # CONTROLS
 # =========================================================================
-# QUERY_KEY: Which query to run when testing one at a time.
-# Options: "apple-mix" | "nvda-datacenter" | "msft-azure" | "q10-refusal"
-QUERY_KEY = "apple-mix"
+# QUERY_KEY: Default query to run when testing single question.
+QUERY_KEY = "1-apple-mix"
 
-# PARALLEL_ALL: If True, executes all 4 client-brief queries concurrently in
-# parallel using asyncio.gather rather than one-by-one sequentially.
+# PARALLEL_ALL: If True, executes all client-brief queries concurrently in parallel.
 PARALLEL_ALL = False
 
 

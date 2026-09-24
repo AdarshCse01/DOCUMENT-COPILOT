@@ -1,5 +1,6 @@
 import type { CitationItem } from '@/lib/api'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { FileText } from 'lucide-react'
 
 interface CitationChipProps {
   index: number
@@ -16,7 +17,8 @@ export function CitationChip({
 }: CitationChipProps) {
   const dateText =
     citation.filing_date || (citation.fiscal_year ? `FY${citation.fiscal_year}` : '')
-  const label = [citation.ticker, citation.form, dateText].filter(Boolean).join(' · ')
+  const labelParts = [citation.ticker, citation.form, citation.section || dateText].filter(Boolean)
+  const label = labelParts.join(' · ')
 
   return (
     <Tooltip>
@@ -25,17 +27,24 @@ export function CitationChip({
           type="button"
           id={`citation-chip-${index}`}
           onClick={() => onClick?.(citation)}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-normal transition-all duration-150 cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-normal transition-all duration-150 cursor-pointer ${
             isSelected
-              ? 'border-zinc-900 bg-zinc-100 text-zinc-900 shadow-2xs ring-1 ring-zinc-900'
-              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50'
+              ? 'border-zinc-900 bg-zinc-900 text-white shadow-2xs'
+              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
           }`}
         >
-          <span className="font-semibold text-zinc-900 font-mono">[{index}]</span>
-          <span className="font-sans text-zinc-700">{label}</span>
+          <span
+            className={`font-semibold font-mono text-[10px] flex h-4 w-4 items-center justify-center rounded-full ${
+              isSelected ? 'bg-white text-zinc-900' : 'bg-zinc-100 text-zinc-800'
+            }`}
+          >
+            {index}
+          </span>
+          <FileText className={`h-3 w-3 ${isSelected ? 'text-zinc-300' : 'text-zinc-400'}`} />
+          <span className="truncate max-w-[200px] text-xs">{label}</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs text-xs space-y-1">
+      <TooltipContent side="top" className="max-w-xs text-xs space-y-1 bg-white text-zinc-900 border border-zinc-200 shadow-md">
         <div className="font-semibold font-mono text-[11px]">
           {citation.ticker} {citation.form} {dateText}
           {citation.page ? ` · p. ${citation.page}` : ''}
@@ -49,4 +58,3 @@ export function CitationChip({
     </Tooltip>
   )
 }
-
