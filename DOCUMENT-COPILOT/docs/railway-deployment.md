@@ -9,35 +9,51 @@ The deployment consists of two Railway services:
 2. **Backend Service:** Containerized FastAPI service powered by `uv` and Uvicorn (`backend/Dockerfile`).
 3. **Database & Auth:** Hosted Supabase instance (PostgreSQL with `pgvector` and Supabase Auth).
 
+## Deployment Methods
+
+You can deploy to Railway using either **GitHub Integration (Automated)** or **Railway CLI**.
+
+### Option A: GitHub Integration (Recommended & Currently Connected)
+Whenever you push commits to `origin/main`, Railway automatically builds and deploys both services.
+
+1. **Backend Service:**
+   - **Root Directory:** `/DOCUMENT-COPILOT/backend` (or `backend`)
+   - **Dockerfile:** `backend/Dockerfile`
+   - **Port:** Bound to `$PORT` (Railway provides `PORT=8000` / `8080`)
+   - **Environment Variables:**
+     - `DATABASE_URL`: Connection string to your Supabase Postgres database.
+     - `SUPABASE_URL`: Supabase project URL.
+     - `SUPABASE_ANON_KEY`: Supabase anon/public API key.
+     - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role secret key.
+     - `OPENAI_API_KEY`: OpenAI API key.
+     - `ALLOWED_ORIGINS`: Comma-separated allowed CORS origins (e.g. `https://frontend-production-420b.up.railway.app,http://localhost:5173`).
+2. **Frontend Service:**
+   - **Root Directory:** `/DOCUMENT-COPILOT/frontend` (or `frontend`)
+   - **Dockerfile:** `frontend/Dockerfile`
+   - **Port:** Caddy serves on `$PORT` (`8080`).
+   - **Networking:** Under service settings → Networking, the **Target Port** for `frontend-production-420b.up.railway.app` is set to `8080`.
+   - **Environment Variables / Build Arguments:**
+     - `VITE_API_BASE_URL`: Backend URL (e.g. `https://document-copilot-production-3f7c.up.railway.app`).
+     - `VITE_SUPABASE_URL`: Supabase project URL.
+     - `VITE_SUPABASE_ANON_KEY`: Supabase anon/public API key.
+
 ---
 
-## 1. Backend Service Deployment
+### Option B: Railway CLI Deployment (Manual Upload)
+If you want to manually trigger deployments from your terminal without committing/pushing to GitHub:
 
-1. Create a new service in Railway from your GitHub repo root pointing to the `/backend` directory (or Railway will detect `backend/Dockerfile`).
-2. Set the **Root Directory** to `backend`.
-3. Configure the following environment variables in Railway:
-   - `DATABASE_URL`: Connection string to your hosted Supabase Postgres database (Transaction pooler or session mode).
-   - `SUPABASE_URL`: Your Supabase project URL (e.g. `https://xyzcompany.supabase.co`).
-   - `SUPABASE_ANON_KEY`: Supabase anon/public API key.
-   - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role secret key.
-   - `OPENAI_API_KEY`: OpenAI API key for embeddings and GPT responses.
-   - `ALLOWED_ORIGINS`: Comma-separated list including your Railway frontend domain (e.g. `https://your-frontend.up.railway.app,http://localhost:5173`).
-   - `PORT`: `8000` (Railway automatically provides `PORT`).
-4. Railway will build using `backend/Dockerfile` and start Uvicorn.
-
----
-
-## 2. Frontend Service Deployment
-
-1. Create a new service in Railway from your GitHub repo.
-2. Set the **Root Directory** to `frontend`.
-3. In the service settings, ensure Dockerfile deployment is selected (`frontend/Dockerfile`).
-4. Set the **Build Arguments** (or Environment Variables):
-   - `VITE_API_BASE_URL`: Public HTTPS URL of the Railway backend service (e.g. `https://your-backend.up.railway.app`).
-   - `VITE_SUPABASE_URL`: Your Supabase project URL.
-   - `VITE_SUPABASE_ANON_KEY`: Supabase anon/public API key.
-5. Caddy serves the static production assets on port `8080` (Railway's default container `$PORT`) with automated SPA routing (`try_files {path} /index.html`) and gzip compression.
-6. Under **Networking** in the frontend service settings, ensure the **Target Port** for your public service domain is set to `8080`.
+1. Link to your Railway project:
+   ```bash
+   railway link 1889e3f1-32f2-44fb-ad06-ca37c3dee2c0
+   ```
+2. Deploy the backend service:
+   ```bash
+   railway up --service DOCUMENT-COPILOT
+   ```
+3. Deploy the frontend service:
+   ```bash
+   railway up --service frontend
+   ```
 
 ---
 
