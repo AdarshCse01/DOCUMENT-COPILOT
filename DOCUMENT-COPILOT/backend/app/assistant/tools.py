@@ -29,10 +29,10 @@ async def search_filings_impl(
     query: str,
     ticker: str | None = None,
     year: int | None = None,
-    top_k: int = 5,
+    top_k: int = 12,
 ) -> str:
     """Search SEC filings across the ingested corpus using hybrid semantic and keyword search."""
-    top_k = min(max(1, top_k), 10)
+    top_k = min(max(1, top_k), 25)
     keywords = ctx.deps.retriever.extract_keywords(query, ticker=ticker)
     print(f"  [AGENT TOOL] search_filings(query={query!r}, ticker={ticker}, year={year}, top_k={top_k})", flush=True)
     print(f"  [AGENT TOOL] Extracted FTS Keywords: {keywords}", flush=True)

@@ -22,23 +22,35 @@ def apply_filters(stmt, ticker: str | None = None, year: int | None = None):
 def semantic_search(
     session: Session,
     query_embedding: list[float],
-    limit: int = 50,
+    limit: int = 60,
+    match_count: int | None = None,
     ticker: str | None = None,
     year: int | None = None,
 ) -> Sequence[DocumentChunk]:
-    """Search chunks using cosine distance (<->) on the pgvector embedding column."""
+    """Search chunks using cosine distance (<->) on the pgvector embedding column.
+
+    Args:
+        session: Active SQLAlchemy database session.
+        query_embedding: Dense embedding vector.
+        limit: Max candidates to retrieve (defaults to 60).
+        match_count: Optional alias for limit (defaults to at least 12).
+        ticker: Optional company ticker filter.
+        year: Optional fiscal year filter.
+    """
+    effective_limit = match_count if match_count is not None else max(limit, 12)
     stmt = select(DocumentChunk).order_by(
         DocumentChunk.embedding.cosine_distance(query_embedding)
     )
     stmt = apply_filters(stmt, ticker, year)
-    stmt = stmt.limit(limit)
+    stmt = stmt.limit(effective_limit)
     return session.scalars(stmt).all()
 
 
 def keyword_search(
     session: Session,
     query_text: str | list[str],
-    limit: int = 50,
+    limit: int = 60,
+    match_count: int | None = None,
     ticker: str | None = None,
     year: int | None = None,
     keywords: list[str] | None = None,
@@ -48,11 +60,13 @@ def keyword_search(
     Args:
         session: Active SQLAlchemy database session.
         query_text: Raw query text or pre-extracted list of terms.
-        limit: Max candidates to retrieve.
+        limit: Max candidates to retrieve (defaults to 60).
+        match_count: Optional alias for limit (defaults to at least 12).
         ticker: Optional company ticker filter.
         year: Optional fiscal year filter.
         keywords: Optional explicit list of extracted search keywords/collocations.
     """
+    effective_limit = match_count if match_count is not None else max(limit, 12)
     if keywords is not None:
         active_keywords = keywords
     elif isinstance(query_text, list):
@@ -76,7 +90,7 @@ def keyword_search(
         func.ts_rank_cd(DocumentChunk.search_vector, tsquery).desc()
     )
     stmt = apply_filters(stmt, ticker, year)
-    stmt = stmt.limit(limit)
+    stmt = stmt.limit(effective_limit)
     results = session.scalars(stmt).all()
 
     # 2. If strict AND returns 0 hits, fall back to OR query ranked by term proximity
@@ -88,7 +102,7 @@ def keyword_search(
             func.ts_rank_cd(DocumentChunk.search_vector, tsquery_or).desc()
         )
         stmt_or = apply_filters(stmt_or, ticker, year)
-        stmt_or = stmt_or.limit(limit)
+        stmt_or = stmt_or.limit(effective_limit)
         results = session.scalars(stmt_or).all()
 
     return results

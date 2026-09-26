@@ -36,8 +36,9 @@ class DocumentRetriever:
         filters: SearchFilters | None = None,
         ticker: str | None = None,
         year: int | None = None,
-        top_k: int = 10,
-        candidate_k: int = 50,
+        top_k: int = 12,
+        candidate_k: int = 60,
+        match_count: int | None = None,
         keywords: list[str] | None = None,
     ) -> list[DocumentChunk]:
         """
@@ -63,13 +64,20 @@ class DocumentRetriever:
             else self.extract_keywords(query, ticker=ticker, max_terms=5)
         )
 
+        effective_top_k = match_count if match_count is not None else top_k
+
         # 2. Query Embedding (Dense Semantic Search)
         semantic_results: list[DocumentChunk] = []
         try:
             query_embedding = self.embedder.embed(query)
             semantic_results = list(
                 semantic_search(
-                    self.session, query_embedding, limit=candidate_k, ticker=ticker, year=year
+                    self.session,
+                    query_embedding,
+                    limit=candidate_k,
+                    match_count=candidate_k,
+                    ticker=ticker,
+                    year=year,
                 )
             )
         except (OpenAIError, RuntimeError, ValueError, OSError) as exc:
@@ -85,6 +93,7 @@ class DocumentRetriever:
                 self.session,
                 query_text=query,
                 limit=candidate_k,
+                match_count=candidate_k,
                 ticker=ticker,
                 year=year,
                 keywords=search_keywords,
@@ -98,7 +107,7 @@ class DocumentRetriever:
         fused_results = reciprocal_rank_fusion(rankings)
 
         # 5. Top-K Selection
-        return fused_results[:top_k]
+        return fused_results[:effective_top_k]
 
 
 HybridRetriever = DocumentRetriever

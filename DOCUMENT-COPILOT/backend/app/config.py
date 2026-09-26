@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     openai_embedding_model: str
     openai_embedding_dimensions: int
     openai_chat_model: str = "gpt-4o-mini"
+    openai_max_tokens: int = 2000
     openai_agent_request_limit: int = 20
     openai_agent_temperature: float = 0.0
     allowed_origins: Annotated[list[str], NoDecode] = Field(min_length=1)

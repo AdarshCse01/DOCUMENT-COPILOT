@@ -4,6 +4,7 @@ import uuid
 from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.settings import ModelSettings
 
 from app.config import settings
 from app.retrieval.queries import get_chunk_by_id, get_surrounding_chunks
@@ -51,6 +52,10 @@ doc_agent: Agent[DocumentAgentDeps, GroundedAnswer] = Agent(
     deps_type=DocumentAgentDeps,
     output_type=GroundedAnswer,
     system_prompt=INSTRUCTIONS,
+    model_settings=ModelSettings(
+        max_tokens=settings.openai_max_tokens,
+        temperature=settings.openai_agent_temperature,
+    ),
 )
 
 
@@ -60,7 +65,7 @@ async def search_filings(
     query: str,
     ticker: str | None = None,
     year: int | None = None,
-    top_k: int = 5,
+    top_k: int = 12,
 ) -> str:
     """Search SEC filings across the ingested corpus using hybrid semantic and keyword search.
 
@@ -68,9 +73,9 @@ async def search_filings(
         query: Specific search terms or natural language query.
         ticker: Optional company ticker filter (e.g. 'AAPL', 'MSFT', 'NVDA').
         year: Optional fiscal year filter (e.g. 2023, 2024).
-        top_k: Number of relevant chunks to return (default 5, max 10).
+        top_k: Number of relevant chunks to return (default 12, max 25).
     """
-    top_k = min(max(1, top_k), 10)
+    top_k = min(max(1, top_k), 25)
     keywords = ctx.deps.retriever.extract_keywords(query, ticker=ticker)
     print(f"  [AGENT TOOL] search_filings(query={query!r}, ticker={ticker}, year={year}, top_k={top_k})", flush=True)
     print(f"  [AGENT TOOL] Extracted FTS Keywords: {keywords}", flush=True)
