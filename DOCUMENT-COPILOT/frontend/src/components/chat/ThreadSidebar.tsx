@@ -42,9 +42,11 @@ interface ThreadSidebarProps {
 function groupThreadsByDate(threads: ChatThread[]) {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000
   const sevenDaysAgo = startOfToday - 7 * 24 * 60 * 60 * 1000
 
   const today: ChatThread[] = []
+  const yesterday: ChatThread[] = []
   const previous7Days: ChatThread[] = []
   const older: ChatThread[] = []
 
@@ -53,6 +55,8 @@ function groupThreadsByDate(threads: ChatThread[]) {
     const threadTime = timeStr ? new Date(timeStr).getTime() : 0
     if (threadTime >= startOfToday) {
       today.push(thread)
+    } else if (threadTime >= startOfYesterday) {
+      yesterday.push(thread)
     } else if (threadTime >= sevenDaysAgo) {
       previous7Days.push(thread)
     } else {
@@ -60,12 +64,11 @@ function groupThreadsByDate(threads: ChatThread[]) {
     }
   }
 
-  // If timestamps are unavailable, display all in today or single bucket
-  if (today.length === 0 && previous7Days.length === 0 && older.length === 0 && threads.length > 0) {
+  if (today.length === 0 && yesterday.length === 0 && previous7Days.length === 0 && older.length === 0 && threads.length > 0) {
     today.push(...threads)
   }
 
-  return { today, previous7Days, older }
+  return { today, yesterday, previous7Days, older }
 }
 
 export function ThreadSidebar({
@@ -122,14 +125,14 @@ export function ThreadSidebar({
           onSelectThread(thread.id)
           onCloseMobile?.()
         }}
-        className={`group relative flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+        className={`group relative flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition-colors ${
           isActive
-            ? 'bg-zinc-100 text-zinc-900 font-medium'
-            : 'text-zinc-700 hover:bg-zinc-50 font-normal'
+            ? 'bg-gray-100 text-gray-900 font-medium'
+            : 'text-gray-700 hover:bg-gray-100 font-normal'
         }`}
       >
         <span
-          className="truncate pr-1 text-zinc-800 flex-1 min-w-0"
+          className="truncate pr-1 flex-1 min-w-0"
           title={thread.title || 'New chat'}
         >
           {thread.title || 'New chat'}
@@ -140,8 +143,8 @@ export function ThreadSidebar({
           id={`thread-delete-${thread.id}`}
           aria-label="Delete thread"
           onClick={(e) => onDeleteThread(thread.id, e)}
-          className={`h-5 w-5 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-800 transition-opacity cursor-pointer shrink-0 ${
-            isActive ? 'opacity-100 text-zinc-600' : 'opacity-0 group-hover:opacity-100'
+          className={`h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-800 transition-opacity cursor-pointer shrink-0 ${
+            isActive ? 'opacity-100 text-gray-600' : 'opacity-0 group-hover:opacity-100'
           }`}
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -163,7 +166,7 @@ export function ThreadSidebar({
       {/* Main Sidebar Element */}
       <aside
         id="chat-sidebar"
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-zinc-200 bg-white transition-all duration-300 ease-in-out md:static ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ease-in-out md:static ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         } ${
           isCollapsed
@@ -179,8 +182,8 @@ export function ThreadSidebar({
                 <img src="/log.png" alt="Document Copilot" className="h-5 w-5 object-contain" />
               </div>
               <div className="flex flex-col">
-                <span className="font-semibold text-xs text-zinc-900 leading-tight">Document Copilot</span>
-                <span className="text-[11px] text-zinc-500 leading-tight">SEC filing assistant</span>
+                <span className="font-semibold text-xs text-gray-900 leading-tight">Document Copilot</span>
+                <span className="text-[11px] text-gray-500 leading-tight">SEC filing assistant</span>
               </div>
             </div>
 
@@ -190,14 +193,14 @@ export function ThreadSidebar({
               id="mobile-sidebar-close-btn"
               onClick={onCloseMobile}
               aria-label="Close sidebar"
-              className="flex md:hidden h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer"
+              className="flex md:hidden h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Action: New Chat Button */}
-          <div className="px-2.5 pb-3">
+          {/* Action: New Chat Button as a simple flex row */}
+          <div className="px-2 pb-2 pt-1">
             <button
               type="button"
               id="new-chat-btn"
@@ -205,9 +208,9 @@ export function ThreadSidebar({
                 onNewChat()
                 onCloseMobile?.()
               }}
-              className="w-full flex items-center justify-start gap-2 bg-white hover:bg-zinc-50 border border-zinc-200/90 text-zinc-700 rounded-lg px-2.5 py-1.5 text-xs font-normal transition-colors cursor-pointer shadow-2xs"
+              className="w-full flex items-center justify-start gap-2.5 text-gray-700 hover:bg-gray-100 rounded-md px-2.5 py-2 text-sm font-normal transition-colors cursor-pointer"
             >
-              <Plus className="h-3.5 w-3.5 text-zinc-600" />
+              <Plus className="h-4 w-4 text-gray-600 shrink-0" />
               <span>New chat</span>
             </button>
           </div>
@@ -215,14 +218,14 @@ export function ThreadSidebar({
           {/* Conversations List grouped by time */}
           <div className="flex-1 overflow-y-auto px-2 space-y-3">
             {threads.length === 0 ? (
-              <div className="px-3 py-6 text-center text-xs text-zinc-400">
+              <div className="px-3 py-6 text-center text-xs text-gray-400">
                 No conversations yet.
               </div>
             ) : (
               <>
                 {groups.today.length > 0 && (
                   <div>
-                    <div className="px-2 pb-1 text-[11px] font-medium text-zinc-400">
+                    <div className="px-2.5 pb-1 pt-1 text-xs font-medium text-gray-400">
                       Today
                     </div>
                     <div className="space-y-0.5">
@@ -231,9 +234,20 @@ export function ThreadSidebar({
                   </div>
                 )}
 
+                {groups.yesterday.length > 0 && (
+                  <div>
+                    <div className="px-2.5 pb-1 pt-2 text-xs font-medium text-gray-400">
+                      Yesterday
+                    </div>
+                    <div className="space-y-0.5">
+                      {groups.yesterday.map(renderThreadItem)}
+                    </div>
+                  </div>
+                )}
+
                 {groups.previous7Days.length > 0 && (
                   <div>
-                    <div className="px-2 pb-1 text-[11px] font-medium text-zinc-400">
+                    <div className="px-2.5 pb-1 pt-2 text-xs font-medium text-gray-400">
                       Previous 7 Days
                     </div>
                     <div className="space-y-0.5">
@@ -244,7 +258,7 @@ export function ThreadSidebar({
 
                 {groups.older.length > 0 && (
                   <div>
-                    <div className="px-2 pb-1 text-[11px] font-medium text-zinc-400">
+                    <div className="px-2.5 pb-1 pt-2 text-xs font-medium text-gray-400">
                       Older
                     </div>
                     <div className="space-y-0.5">
@@ -257,14 +271,19 @@ export function ThreadSidebar({
           </div>
 
           {/* User Profile Footer */}
-          <div className="p-2.5 border-t border-zinc-200/80 mt-auto flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div className="h-6 w-6 rounded-full bg-zinc-900 text-white text-[10px] font-medium flex items-center justify-center shrink-0">
+          <div className="p-3 border-t border-gray-100 mt-auto flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="h-7 w-7 rounded-full bg-black text-white text-[11px] font-semibold flex items-center justify-center shrink-0">
                 {initials}
               </div>
-              <span className="text-xs font-normal text-zinc-800 truncate">
-                {userEmail || 'dave@driftwood.com'}
-              </span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-medium text-gray-900 truncate leading-tight">
+                  {userEmail || 'dave@driftwood.com'}
+                </span>
+                <span className="text-[11px] text-gray-400 leading-tight">
+                  Signed in
+                </span>
+              </div>
             </div>
 
             <DropdownMenu>
@@ -273,20 +292,20 @@ export function ThreadSidebar({
                   type="button"
                   id="sidebar-user-menu-btn"
                   aria-label="User actions"
-                  className="h-6 w-6 flex items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 transition-colors cursor-pointer shrink-0"
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-800 transition-colors cursor-pointer shrink-0"
                 >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
+                  <MoreHorizontal className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 bg-white border border-zinc-200 shadow-md">
-                <div className="px-2 py-1.5 text-xs text-zinc-500">
-                  Signed in as <strong className="text-zinc-900 block truncate">{userEmail || 'dave@driftwood.com'}</strong>
+              <DropdownMenuContent align="end" className="w-48 bg-white border border-gray-200 shadow-md">
+                <div className="px-2 py-1.5 text-xs text-gray-500">
+                  Signed in as <strong className="text-gray-900 block truncate">{userEmail || 'dave@driftwood.com'}</strong>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={onSignOut}
                   id="sidebar-sign-out-btn"
-                  className="cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
+                  className="cursor-pointer text-xs text-red-600 focus:text-red-700 focus:bg-red-50"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   <span>Sign out</span>
@@ -299,7 +318,7 @@ export function ThreadSidebar({
 
       {/* Rename Dialog */}
       <Dialog open={!!renameTarget} onOpenChange={(open) => !open && setRenameTarget(null)}>
-        <DialogContent className="sm:max-w-md bg-white border border-zinc-200">
+        <DialogContent className="sm:max-w-md bg-white border border-gray-200">
           <DialogHeader>
             <DialogTitle>Rename conversation</DialogTitle>
             <DialogDescription>
@@ -314,7 +333,7 @@ export function ThreadSidebar({
               placeholder="Conversation title"
               disabled={isRenaming}
               autoFocus
-              className="w-full h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:outline-none focus:border-zinc-500"
+              className="w-full h-9 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:border-gray-500"
             />
             <DialogFooter className="gap-2 sm:gap-0">
               <Button
@@ -330,7 +349,7 @@ export function ThreadSidebar({
                 type="submit"
                 size="sm"
                 disabled={!renameValue.trim() || isRenaming}
-                className="bg-black text-white hover:bg-zinc-800"
+                className="bg-black text-white hover:bg-gray-800"
               >
                 {isRenaming ? 'Saving…' : 'Save'}
               </Button>

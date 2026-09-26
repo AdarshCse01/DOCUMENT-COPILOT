@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
-import { Menu, PanelLeft, User } from 'lucide-react'
+import { Menu, PanelLeft } from 'lucide-react'
 import {
   deleteThread,
   listThreads,
@@ -147,28 +147,30 @@ export function ChatLayout() {
         {/* Main Content Area */}
         <div className="relative flex flex-1 flex-col overflow-hidden min-w-0 bg-white">
           {/* Mobile Header with Sidebar Toggle */}
-          <header className="flex h-14 items-center justify-between border-b border-border/80 px-4 md:hidden bg-white shrink-0">
+          <header className="flex h-12 items-center justify-between border-b border-gray-200 px-4 md:hidden bg-white shrink-0">
             <button
               type="button"
               id="mobile-sidebar-toggle-btn"
               onClick={() => setMobileSidebarOpen(true)}
               aria-label="Open navigation menu"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-700"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             </button>
-            <span className="font-semibold text-sm">Document Copilot</span>
+            <span className="font-medium text-xs text-gray-800 truncate max-w-[200px]">
+              {threads.find((t) => t.id === activeThreadId)?.title || 'Document Copilot'}
+            </span>
             <div
               title={user?.email || 'User Profile'}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 text-xs"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-white text-[10px] font-semibold"
             >
-              <User className="h-4 w-4" />
+              {(user?.email || 'DA').slice(0, 2).toUpperCase()}
             </div>
           </header>
 
           {/* Desktop Navigation Header */}
-          <header className="hidden md:flex h-11 items-center px-4 shrink-0 border-b border-zinc-200/80 bg-white">
-            <div className="flex items-center gap-2">
+          <header className="hidden md:flex h-11 items-center px-4 shrink-0 border-b border-gray-100 bg-white">
+            <div className="flex items-center gap-2.5 min-w-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -176,16 +178,18 @@ export function ChatLayout() {
                     id="desktop-sidebar-toggle-btn"
                     onClick={() => setSidebarCollapsed((prev) => !prev)}
                     aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors cursor-pointer"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-800 transition-colors cursor-pointer shrink-0"
                   >
                     <PanelLeft className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} <kbd className="ml-1 text-[10px] text-zinc-400">Ctrl+B</kbd>
+                  {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} <kbd className="ml-1 text-[10px] text-gray-400">Ctrl+B</kbd>
                 </TooltipContent>
               </Tooltip>
-              <span className="text-xs font-semibold text-zinc-900">Document Copilot</span>
+              <span className="text-xs font-normal text-gray-700 truncate max-w-2xl">
+                {threads.find((t) => t.id === activeThreadId)?.title || 'Document Copilot'}
+              </span>
             </div>
           </header>
 
