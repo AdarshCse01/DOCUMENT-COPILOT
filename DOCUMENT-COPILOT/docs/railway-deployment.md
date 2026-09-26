@@ -36,7 +36,8 @@ The deployment consists of two Railway services:
    - `VITE_API_BASE_URL`: Public HTTPS URL of the Railway backend service (e.g. `https://your-backend.up.railway.app`).
    - `VITE_SUPABASE_URL`: Your Supabase project URL.
    - `VITE_SUPABASE_ANON_KEY`: Supabase anon/public API key.
-5. Caddy serves the static production assets on port `3000` with automated SPA routing (`try_files {path} /index.html`) and gzip compression.
+5. Caddy serves the static production assets on port `8080` (Railway's default container `$PORT`) with automated SPA routing (`try_files {path} /index.html`) and gzip compression.
+6. Under **Networking** in the frontend service settings, ensure the **Target Port** for your public service domain is set to `8080`.
 
 ---
 
