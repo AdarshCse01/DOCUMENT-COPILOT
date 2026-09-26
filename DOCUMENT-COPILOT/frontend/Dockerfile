@@ -23,4 +23,4 @@ FROM caddy:2-alpine
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
 
-EXPOSE 3000
+EXPOSE 8080
