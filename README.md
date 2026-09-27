@@ -10,7 +10,16 @@ A full-stack GenAI application for analyzing SEC filings with verifiable citatio
 
 ## Live Demo
 
-**[https://document-copilot-frontend-production.up.railway.app](https://document-copilot-frontend-production.up.railway.app)**
+**[https://frontend-production-420b.up.railway.app](https://frontend-production-420b.up.railway.app)**
+
+## Demo Access
+
+You can try the live app without signing up using these demo credentials:
+
+- **Email:** documentcopilot.demo@gmail.com
+- **Password:** Demo@2026!Pass
+
+> **Note:** This is a demo account for testing purposes only. Please do not use this password for any other service.
 
 ## Overview
 
