@@ -5,7 +5,7 @@ This guide covers deploying Document Copilot to Railway using the containerized 
 ## Overview
 
 The deployment consists of two Railway services:
-1. **Frontend Service:** Containerized React SPA built with Vite and served via Caddy 2 (`frontend/Dockerfile`).
+1. **Frontend Service:** Containerized React SPA built with Vite and served via Nginx (`frontend/Dockerfile`).
 2. **Backend Service:** Containerized FastAPI service powered by `uv` and Uvicorn (`backend/Dockerfile`).
 3. **Database & Auth:** Hosted Supabase instance (PostgreSQL with `pgvector` and Supabase Auth).
 
@@ -30,7 +30,7 @@ Whenever you push commits to `origin/main`, Railway automatically builds and dep
 2. **Frontend Service:**
    - **Root Directory:** `/DOCUMENT-COPILOT/frontend` (or `frontend`)
    - **Dockerfile:** `frontend/Dockerfile`
-   - **Port:** Caddy serves on `$PORT` (`8080`).
+   - **Port:** Nginx serves on ports `80` and `8080`.
    - **Networking:** Under service settings → Networking, the **Target Port** for `frontend-production-420b.up.railway.app` is set to `8080`.
    - **Environment Variables / Build Arguments:**
      - `VITE_API_BASE_URL`: Backend URL (e.g. `https://document-copilot-production-3f7c.up.railway.app`).
